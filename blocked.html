@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Blocked — Focus Guard</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+      color: #e2e8f0;
+      text-align: center;
+      padding: 24px;
+    }
+    .card {
+      max-width: 440px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 20px;
+      padding: 48px 36px;
+    }
+    .emoji { font-size: 64px; line-height: 1; margin-bottom: 16px; }
+    h1 { font-size: 26px; font-weight: 700; margin-bottom: 12px; }
+    .domain {
+      display: inline-block;
+      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      background: rgba(239, 68, 68, 0.15);
+      color: #fca5a5;
+      padding: 4px 10px;
+      border-radius: 8px;
+      margin: 4px 0 18px;
+      font-size: 15px;
+    }
+    p { color: #94a3b8; line-height: 1.6; font-size: 15px; margin-bottom: 24px; }
+    .quote { font-style: italic; color: #cbd5e1; margin-bottom: 28px; }
+    a.back {
+      display: inline-block;
+      background: #6366f1;
+      color: #fff;
+      text-decoration: none;
+      padding: 12px 24px;
+      border-radius: 10px;
+      font-weight: 600;
+      transition: background 0.15s;
+    }
+    a.back:hover { background: #4f46e5; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="emoji">🌱</div>
+    <h1>Stay focused</h1>
+    <div class="domain" id="domain">this site</div>
+    <p>Focus Guard is blocking this site to protect your attention. Get back to what matters.</p>
+    <p class="quote" id="quote"></p>
+    <a class="back" href="#" id="back">← Go back</a>
+  </div>
+  <script src="blocked.js"></script>
+</body>
+</html>

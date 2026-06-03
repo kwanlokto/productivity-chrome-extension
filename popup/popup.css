@@ -1,0 +1,95 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0f172a;
+  --surface: #1e293b;
+  --surface-2: #334155;
+  --text: #e2e8f0;
+  --muted: #94a3b8;
+  --accent: #6366f1;
+  --danger: #ef4444;
+}
+
+body {
+  width: 340px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  padding: 16px;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+.logo { font-size: 22px; }
+header h1 { font-size: 18px; font-weight: 700; }
+
+section { margin-bottom: 22px; }
+section h2 {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+
+#add-form { display: flex; gap: 8px; margin-bottom: 12px; }
+#domain-input {
+  flex: 1;
+  background: var(--surface);
+  border: 1px solid var(--surface-2);
+  border-radius: 8px;
+  padding: 8px 10px;
+  color: var(--text);
+  font-size: 13px;
+}
+#domain-input:focus { outline: none; border-color: var(--accent); }
+#add-form button {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+}
+#add-form button:hover { background: #4f46e5; }
+
+#domain-list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+#domain-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--surface);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+}
+#domain-list button {
+  background: transparent;
+  border: none;
+  color: var(--danger);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 0 4px;
+}
+#domain-list button:hover { color: #f87171; }
+
+.empty { color: var(--muted); font-size: 13px; font-style: italic; }
+.hidden { display: none; }
+
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 0;
+  font-size: 14px;
+  cursor: pointer;
+}
+.toggle input { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }

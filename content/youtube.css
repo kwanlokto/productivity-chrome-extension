@@ -1,0 +1,51 @@
+/* Focus Guard — YouTube focus styles.
+   Each block only takes effect when the matching class is present on <html>,
+   so the content script can toggle features without re-injecting CSS. */
+
+/* --- Hide Shorts --- */
+html.fg-hide-shorts ytd-reel-shelf-renderer,
+html.fg-hide-shorts ytd-rich-shelf-renderer[is-shorts],
+html.fg-hide-shorts ytd-rich-section-renderer:has(ytd-rich-shelf-renderer[is-shorts]),
+html.fg-hide-shorts ytd-reel-video-renderer,
+html.fg-hide-shorts ytd-video-renderer:has(a[href^="/shorts"]),
+html.fg-hide-shorts ytd-grid-video-renderer:has(a[href^="/shorts"]),
+html.fg-hide-shorts ytd-guide-entry-renderer:has(a[title="Shorts"]),
+html.fg-hide-shorts ytd-mini-guide-entry-renderer[aria-label="Shorts"],
+html.fg-hide-shorts a[title="Shorts"] {
+  display: none !important;
+}
+
+/* --- Hide home feed --- */
+html.fg-hide-home ytd-browse[page-subtype="home"] ytd-rich-grid-renderer,
+html.fg-hide-home ytd-browse[page-subtype="home"] #contents.ytd-rich-grid-renderer {
+  display: none !important;
+}
+html.fg-hide-home ytd-browse[page-subtype="home"]::after {
+  content: "🌱 Home feed hidden by Focus Guard. Search for what you actually came for.";
+  display: block;
+  text-align: center;
+  color: var(--yt-spec-text-secondary, #888);
+  font-size: 15px;
+  padding: 80px 24px;
+}
+
+/* --- Hide related / recommendations / autoplay --- */
+html.fg-hide-related #related,
+html.fg-hide-related ytd-watch-next-secondary-results-renderer,
+html.fg-hide-related .ytp-endscreen-content,
+html.fg-hide-related .ytp-ce-element,
+html.fg-hide-related .ytp-autonav-endscreen-upnext-container,
+html.fg-hide-related ytd-compact-video-renderer {
+  display: none !important;
+}
+
+/* --- Hide comments --- */
+html.fg-hide-comments #comments,
+html.fg-hide-comments ytd-comments {
+  display: none !important;
+}
+
+/* --- Grayscale --- */
+html.fg-grayscale {
+  filter: grayscale(100%) !important;
+}
