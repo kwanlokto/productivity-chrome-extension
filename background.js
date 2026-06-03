@@ -44,12 +44,21 @@ function buildRules(domains) {
 }
 
 // Replace all existing dynamic rules with a fresh set generated from storage.
-async function syncRules() {
+async function doSyncRules() {
   const { blockedDomains = DEFAULT_BLOCKED } = await chrome.storage.sync.get("blockedDomains");
   const existing = await chrome.declarativeNetRequest.getDynamicRules();
   const removeRuleIds = existing.map((r) => r.id);
   const addRules = buildRules(blockedDomains);
   await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds, addRules });
+}
+
+// Serialize sync calls. Multiple triggers (install + the storage write it causes,
+// plus startup) can otherwise run concurrently, each read an empty rule set, and
+// then both try to add id 1 -> "Rule with id 1 does not have a unique ID."
+let syncChain = Promise.resolve();
+function syncRules() {
+  syncChain = syncChain.then(doSyncRules, doSyncRules);
+  return syncChain;
 }
 
 // Seed defaults on first install, then sync.
