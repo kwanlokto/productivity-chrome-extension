@@ -1,0 +1,40 @@
+name: Build extension zip
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Read manifest version
+        id: meta
+        run: echo "version=$(jq -r .version manifest.json)" >> "$GITHUB_OUTPUT"
+
+      - name: Build zip
+        run: |
+          mkdir -p dist
+          zip -r "dist/focus-guard-v${{ steps.meta.outputs.version }}.zip" . \
+            -x ".git/*" ".github/*" "dist/*" "*.zip" "README.md"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: focus-guard-v${{ steps.meta.outputs.version }}
+          path: dist/*.zip
+          if-no-files-found: error
+
+      - name: Attach zip to release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.zip
