@@ -79,6 +79,18 @@ async function getYoutube() {
   return { ...DEFAULT_YOUTUBE, ...youtube };
 }
 
+// The Allowed channels list is only usable when YouTube tweaks are on AND
+// "Allowed channels only" is on — otherwise disable + gray it out.
+function applyChannelsEnabled() {
+  const masterOn = document.querySelector('[data-yt="enabled"]').checked;
+  const allowlistOn = document.querySelector('[data-yt="allowedChannelsOnly"]').checked;
+  const on = masterOn && allowlistOn;
+  const channelsSection = document.getElementById("channels-section");
+  channelsSection?.classList.toggle("is-disabled", !on);
+  channelInputEl.disabled = !on;
+  channelFormEl.querySelector("button").disabled = !on;
+}
+
 // Disable + gray out every YouTube sub-option when the master toggle is off.
 function applyYoutubeEnabled(enabled) {
   document.querySelectorAll('[data-yt]').forEach((el) => {
@@ -86,11 +98,7 @@ function applyYoutubeEnabled(enabled) {
     el.disabled = !enabled;
     el.closest(".toggle")?.classList.toggle("is-disabled", !enabled);
   });
-  // The Allowed channels section depends on the YouTube tweaks too.
-  const channelsSection = document.getElementById("channels-section");
-  channelsSection?.classList.toggle("is-disabled", !enabled);
-  channelInputEl.disabled = !enabled;
-  channelFormEl.querySelector("button").disabled = !enabled;
+  applyChannelsEnabled();
 }
 
 function bindYoutubeToggles(settings) {
@@ -102,6 +110,7 @@ function bindYoutubeToggles(settings) {
       current[key] = el.checked;
       await chrome.storage.sync.set({ youtube: current });
       if (key === "enabled") applyYoutubeEnabled(el.checked);
+      if (key === "allowedChannelsOnly") applyChannelsEnabled();
     });
   });
   applyYoutubeEnabled(Boolean(settings.enabled));
