@@ -27,7 +27,36 @@ header {
 .logo { font-size: 22px; }
 header h1 { font-size: 18px; font-weight: 700; }
 
+/* Tabs */
+.tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid var(--surface-2);
+}
+.tab {
+  flex: 1;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 6px;
+  cursor: pointer;
+  margin-bottom: -1px;
+}
+.tab:hover { color: var(--text); }
+.tab.is-active {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+}
+
+.panel { display: none; }
+.panel.is-active { display: block; }
+
 section { margin-bottom: 22px; }
+.panel section:last-child { margin-bottom: 0; }
 section h2 {
   font-size: 12px;
   text-transform: uppercase;

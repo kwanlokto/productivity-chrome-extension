@@ -11,58 +11,67 @@
     <h1>Focus Guard</h1>
   </header>
 
-  <section>
-    <h2>Blocked sites</h2>
-    <form id="add-form">
-      <input id="domain-input" type="text" placeholder="add a domain, e.g. reddit.com" autocomplete="off" />
-      <button type="submit">Add</button>
-    </form>
-    <ul id="domain-list"></ul>
-    <p id="empty" class="empty hidden">No sites blocked yet.</p>
-  </section>
+  <nav class="tabs" role="tablist">
+    <button class="tab is-active" data-tab="sites" role="tab">Blocked sites</button>
+    <button class="tab" data-tab="youtube" role="tab">YouTube</button>
+  </nav>
 
-  <section>
-    <h2>YouTube focus</h2>
-    <label class="toggle">
-      <input type="checkbox" data-yt="enabled" />
-      <span>Enable YouTube tweaks</span>
-    </label>
-    <label class="toggle">
-      <input type="checkbox" data-yt="hideShorts" />
-      <span>Hide Shorts</span>
-    </label>
-    <label class="toggle">
-      <input type="checkbox" data-yt="hideHomeFeed" />
-      <span>Hide home feed</span>
-    </label>
-    <label class="toggle">
-      <input type="checkbox" data-yt="hideRelated" />
-      <span>Hide sidebar &amp; end-screen recommendations</span>
-    </label>
-    <label class="toggle">
-      <input type="checkbox" data-yt="hideComments" />
-      <span>Hide comments</span>
-    </label>
-    <label class="toggle">
-      <input type="checkbox" data-yt="grayscale" />
-      <span>Grayscale mode</span>
-    </label>
-    <label class="toggle">
-      <input type="checkbox" data-yt="educationalOnly" />
-      <span>Educational only (channel allowlist)</span>
-    </label>
-  </section>
+  <div class="panel is-active" data-panel="sites">
+    <section>
+      <h2>Blocked sites</h2>
+      <form id="add-form">
+        <input id="domain-input" type="text" placeholder="add a domain, e.g. reddit.com" autocomplete="off" />
+        <button type="submit">Add</button>
+      </form>
+      <ul id="domain-list"></ul>
+      <p id="empty" class="empty hidden">No sites blocked yet.</p>
+    </section>
+  </div>
 
-  <section id="channels-section">
-    <h2>Allowed channels</h2>
-    <p class="hint">Only videos from these channels show when “Educational only” is on. Use the channel handle.</p>
-    <form id="channel-form">
-      <input id="channel-input" type="text" placeholder="add a channel, e.g. @veritasium" autocomplete="off" />
-      <button type="submit">Add</button>
-    </form>
-    <ul id="channel-list"></ul>
-    <p id="channel-empty" class="empty hidden">No channels allowed yet — everything will be hidden.</p>
-  </section>
+  <div class="panel" data-panel="youtube">
+    <section>
+      <h2>YouTube focus</h2>
+      <label class="toggle">
+        <input type="checkbox" data-yt="enabled" />
+        <span>Enable YouTube tweaks</span>
+      </label>
+      <label class="toggle">
+        <input type="checkbox" data-yt="hideShorts" />
+        <span>Hide Shorts</span>
+      </label>
+      <label class="toggle">
+        <input type="checkbox" data-yt="hideHomeFeed" />
+        <span>Hide home feed</span>
+      </label>
+      <label class="toggle">
+        <input type="checkbox" data-yt="hideRelated" />
+        <span>Hide sidebar &amp; end-screen recommendations</span>
+      </label>
+      <label class="toggle">
+        <input type="checkbox" data-yt="hideComments" />
+        <span>Hide comments</span>
+      </label>
+      <label class="toggle">
+        <input type="checkbox" data-yt="grayscale" />
+        <span>Grayscale mode</span>
+      </label>
+      <label class="toggle">
+        <input type="checkbox" data-yt="educationalOnly" />
+        <span>Educational only (channel allowlist)</span>
+      </label>
+    </section>
+
+    <section id="channels-section">
+      <h2>Allowed channels</h2>
+      <p class="hint">Only videos from these channels show when “Educational only” is on. Use the channel handle.</p>
+      <form id="channel-form">
+        <input id="channel-input" type="text" placeholder="add a channel, e.g. @veritasium" autocomplete="off" />
+        <button type="submit">Add</button>
+      </form>
+      <ul id="channel-list"></ul>
+      <p id="channel-empty" class="empty hidden">No channels allowed yet — everything will be hidden.</p>
+    </section>
+  </div>
 
   <script src="popup.js"></script>
 </body>

@@ -147,7 +147,21 @@ channelFormEl.addEventListener("submit", async (e) => {
   channelInputEl.value = "";
 });
 
+// --- Tab switching ---
+function bindTabs() {
+  const tabs = document.querySelectorAll(".tab");
+  const panels = document.querySelectorAll(".panel");
+  tabs.forEach((tab) => {
+    tab.addEventListener("click", () => {
+      const target = tab.dataset.tab;
+      tabs.forEach((t) => t.classList.toggle("is-active", t === tab));
+      panels.forEach((p) => p.classList.toggle("is-active", p.dataset.panel === target));
+    });
+  });
+}
+
 (async function init() {
+  bindTabs();
   renderDomains(await getDomains());
   bindYoutubeToggles(await getYoutube());
   renderChannels(await getChannels());
