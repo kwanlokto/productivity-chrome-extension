@@ -7,18 +7,17 @@ const DEFAULT_YOUTUBE = {
   enabled: true,
   hideShorts: true,
   hideHomeFeed: true,
-  hideRelated: true,
-  hideComments: false,
+  hideWatchDistractions: true, // sidebar/end-screen recommendations + comments
   grayscale: false,
   allowedChannelsOnly: false
 };
 
+// Each setting toggles one or more <html> classes (see youtube.css).
 const CLASS_MAP = {
-  hideShorts: "fg-hide-shorts",
-  hideHomeFeed: "fg-hide-home",
-  hideRelated: "fg-hide-related",
-  hideComments: "fg-hide-comments",
-  grayscale: "fg-grayscale"
+  hideShorts: ["fg-hide-shorts"],
+  hideHomeFeed: ["fg-hide-home"],
+  hideWatchDistractions: ["fg-hide-related", "fg-hide-comments"],
+  grayscale: ["fg-grayscale"]
 };
 
 // Live state, refreshed from storage.
@@ -30,8 +29,9 @@ const bypassed = new Set();
 // ---------- CSS-class toggles ----------
 function applyClasses() {
   const root = document.documentElement;
-  for (const [key, className] of Object.entries(CLASS_MAP)) {
-    root.classList.toggle(className, Boolean(settings.enabled && settings[key]));
+  for (const [key, classNames] of Object.entries(CLASS_MAP)) {
+    const on = Boolean(settings.enabled && settings[key]);
+    for (const className of classNames) root.classList.toggle(className, on);
   }
 }
 
