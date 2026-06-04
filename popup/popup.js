@@ -6,7 +6,6 @@ const DEFAULT_YOUTUBE = {
   hideShorts: true,
   hideHomeFeed: true,
   hideWatchDistractions: true,
-  grayscale: false,
   allowedChannelsOnly: false
 };
 

@@ -8,7 +8,6 @@ const DEFAULT_YOUTUBE = {
   hideShorts: true,
   hideHomeFeed: true,
   hideWatchDistractions: true, // sidebar/end-screen recommendations + comments
-  grayscale: false,
   allowedChannelsOnly: false
 };
 
@@ -16,8 +15,7 @@ const DEFAULT_YOUTUBE = {
 const CLASS_MAP = {
   hideShorts: ["fg-hide-shorts"],
   hideHomeFeed: ["fg-hide-home"],
-  hideWatchDistractions: ["fg-hide-related", "fg-hide-comments"],
-  grayscale: ["fg-grayscale"]
+  hideWatchDistractions: ["fg-hide-related", "fg-hide-comments"]
 };
 
 // Live state, refreshed from storage.

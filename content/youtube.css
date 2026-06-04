@@ -45,12 +45,7 @@ html.fg-hide-comments ytd-comments {
   display: none !important;
 }
 
-/* --- Grayscale --- */
-html.fg-grayscale {
-  filter: grayscale(100%) !important;
-}
-
-/* --- Educational-only: hidden feed/search/sidebar items --- */
+/* --- Allowed-channels-only: hidden feed/search/sidebar items --- */
 .fg-edu-hidden {
   display: none !important;
 }
