@@ -1,6 +1,7 @@
 // Focus Guard — YouTube content script.
-// Toggles <html> classes that drive youtube.css, based on stored settings.
-// Runs at document_start and re-applies across YouTube's SPA navigations.
+// 1. Toggles <html> classes that drive youtube.css (Shorts/feed/related/etc.).
+// 2. "Educational only" mode: keeps a channel allowlist, hides non-allowlisted
+//    videos in feeds/search/sidebar, and blocks non-allowlisted watch pages.
 
 const DEFAULT_YOUTUBE = {
   enabled: true,
@@ -8,7 +9,8 @@ const DEFAULT_YOUTUBE = {
   hideHomeFeed: true,
   hideRelated: true,
   hideComments: false,
-  grayscale: false
+  grayscale: false,
+  educationalOnly: false
 };
 
 const CLASS_MAP = {
@@ -19,37 +21,186 @@ const CLASS_MAP = {
   grayscale: "fg-grayscale"
 };
 
-function apply(settings) {
-  const s = { ...DEFAULT_YOUTUBE, ...settings };
+// Live state, refreshed from storage.
+let settings = { ...DEFAULT_YOUTUBE };
+let allowedChannels = [];
+// Per-session "watch anyway" bypass — video ids the user chose to watch.
+const bypassed = new Set();
+
+// ---------- CSS-class toggles ----------
+function applyClasses() {
   const root = document.documentElement;
   for (const [key, className] of Object.entries(CLASS_MAP)) {
-    // A feature is on only when the master switch AND its own toggle are enabled.
-    root.classList.toggle(className, Boolean(s.enabled && s[key]));
+    root.classList.toggle(className, Boolean(settings.enabled && settings[key]));
   }
 }
 
-// Disable YouTube autoplay-next toggle when recommendations are hidden.
-function disableAutoplay(settings) {
-  if (!settings.enabled || !settings.hideRelated) return;
-  const btn = document.querySelector(".ytp-autonav-toggle-button[aria-checked='true']");
-  if (btn) btn.click();
+// ---------- Channel matching ----------
+function normChannel(s) {
+  return String(s || "").toLowerCase().replace(/^@/, "").trim();
 }
 
-chrome.storage.sync.get("youtube").then(({ youtube }) => {
-  const settings = { ...DEFAULT_YOUTUBE, ...youtube };
-  apply(settings);
-
-  // Re-apply on SPA navigation and try to kill autoplay once the player loads.
-  window.addEventListener("yt-navigate-finish", () => {
-    apply(settings);
-    setTimeout(() => disableAutoplay(settings), 1500);
+function channelAllowed(info) {
+  const handle = normChannel(info.handle);
+  const name = normChannel(info.name);
+  return allowedChannels.some((raw) => {
+    const e = normChannel(raw);
+    if (!e) return false;
+    return handle === e || (handle && handle.includes(e)) || name === e || (name && name.includes(e));
   });
-  setTimeout(() => disableAutoplay(settings), 2500);
+}
+
+// Pull a channel handle (/@handle) and display name out of a video card.
+function getChannelInfo(scope) {
+  const link =
+    scope.querySelector('a[href^="/@"]') ||
+    scope.querySelector("ytd-channel-name a") ||
+    scope.querySelector('a.yt-simple-endpoint[href*="/@"]') ||
+    scope.querySelector('a[href^="/channel/"], a[href^="/c/"]');
+  let handle = "";
+  let name = "";
+  if (link) {
+    const href = link.getAttribute("href") || "";
+    const m = href.match(/\/@([^/?#]+)/);
+    if (m) handle = m[1];
+    name = (link.textContent || "").trim();
+  }
+  if (!name) {
+    const nameEl = scope.querySelector(
+      'ytd-channel-name #text, #channel-name #text, #text.ytd-channel-name'
+    );
+    if (nameEl) name = nameEl.textContent.trim();
+  }
+  return { handle, name, hasInfo: Boolean(handle || name) };
+}
+
+const ITEM_SELECTOR = [
+  "ytd-rich-item-renderer",
+  "ytd-video-renderer",
+  "ytd-grid-video-renderer",
+  "ytd-compact-video-renderer"
+].join(",");
+
+// Hide feed/search/sidebar items that aren't from an allowlisted channel.
+function filterItems() {
+  const active = settings.enabled && settings.educationalOnly;
+  const items = document.querySelectorAll(ITEM_SELECTOR);
+  for (const item of items) {
+    if (!active) {
+      item.classList.remove("fg-edu-hidden");
+      continue;
+    }
+    const info = getChannelInfo(item);
+    // Channel not rendered yet — leave it; the observer will revisit.
+    if (!info.hasInfo) continue;
+    item.classList.toggle("fg-edu-hidden", !channelAllowed(info));
+  }
+}
+
+// ---------- Watch-page block overlay ----------
+function getWatchChannelInfo() {
+  const owner =
+    document.querySelector("ytd-watch-metadata #owner") ||
+    document.querySelector("#owner.ytd-watch-metadata") ||
+    document.querySelector("ytd-video-owner-renderer");
+  return owner ? getChannelInfo(owner) : { handle: "", name: "", hasInfo: false };
+}
+
+function removeOverlay() {
+  document.getElementById("fg-edu-overlay")?.remove();
+}
+
+function showOverlay(videoId, info) {
+  // Pause whatever is playing.
+  document.querySelector("video")?.pause();
+  if (document.getElementById("fg-edu-overlay")) return;
+
+  const overlay = document.createElement("div");
+  overlay.id = "fg-edu-overlay";
+  overlay.innerHTML = `
+    <div class="fg-box">
+      <div class="fg-emoji">📚</div>
+      <h1>Not on your learning list</h1>
+      <p>${info.name ? escapeHtml(info.name) : "This channel"} isn't in your educational channel allowlist.</p>
+      <div class="fg-actions">
+        <button id="fg-go-back">← Go back</button>
+        <button id="fg-watch-anyway">Watch anyway</button>
+      </div>
+    </div>`;
+  document.documentElement.appendChild(overlay);
+
+  overlay.querySelector("#fg-go-back").addEventListener("click", () => {
+    if (history.length > 1) history.back();
+    else location.href = "https://www.youtube.com";
+  });
+  overlay.querySelector("#fg-watch-anyway").addEventListener("click", () => {
+    if (videoId) bypassed.add(videoId);
+    removeOverlay();
+    document.querySelector("video")?.play();
+  });
+}
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])
+  );
+}
+
+function enforceWatchPage() {
+  if (!(settings.enabled && settings.educationalOnly) || location.pathname !== "/watch") {
+    removeOverlay();
+    return;
+  }
+  const videoId = new URLSearchParams(location.search).get("v");
+  if (videoId && bypassed.has(videoId)) {
+    removeOverlay();
+    return;
+  }
+  const info = getWatchChannelInfo();
+  if (!info.hasInfo) return; // metadata not loaded yet; observer will retry
+  if (channelAllowed(info)) {
+    removeOverlay();
+  } else {
+    showOverlay(videoId, info);
+  }
+}
+
+// ---------- Run loop ----------
+let scheduled = false;
+function refresh() {
+  if (scheduled) return;
+  scheduled = true;
+  requestAnimationFrame(() => {
+    scheduled = false;
+    applyClasses();
+    filterItems();
+    enforceWatchPage();
+  });
+}
+
+function loadAndStart() {
+  chrome.storage.sync.get(["youtube", "allowedChannels"]).then((data) => {
+    settings = { ...DEFAULT_YOUTUBE, ...(data.youtube || {}) };
+    allowedChannels = data.allowedChannels || [];
+    refresh();
+  });
+}
+
+loadAndStart();
+
+// YouTube lazy-loads everything, so watch the DOM and re-filter as cards appear.
+new MutationObserver(refresh).observe(document.documentElement, {
+  childList: true,
+  subtree: true
 });
 
-// Live-update when the user changes settings in the popup.
+// SPA navigation between videos/pages.
+window.addEventListener("yt-navigate-finish", refresh);
+
+// Live-update when settings change in the popup.
 chrome.storage.onChanged.addListener((changes, area) => {
-  if (area === "sync" && changes.youtube) {
-    apply(changes.youtube.newValue || {});
-  }
+  if (area !== "sync") return;
+  if (changes.youtube) settings = { ...DEFAULT_YOUTUBE, ...(changes.youtube.newValue || {}) };
+  if (changes.allowedChannels) allowedChannels = changes.allowedChannels.newValue || [];
+  if (changes.youtube || changes.allowedChannels) refresh();
 });

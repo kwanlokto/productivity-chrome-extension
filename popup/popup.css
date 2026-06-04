@@ -59,8 +59,8 @@ section h2 {
 }
 #add-form button:hover { background: #4f46e5; }
 
-#domain-list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
-#domain-list li {
+#domain-list, #channel-list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+#domain-list li, #channel-list li {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -70,7 +70,7 @@ section h2 {
   font-size: 13px;
   font-family: ui-monospace, "SF Mono", Menlo, monospace;
 }
-#domain-list button {
+#domain-list button, #channel-list button {
   background: transparent;
   border: none;
   color: var(--danger);
@@ -79,9 +79,33 @@ section h2 {
   line-height: 1;
   padding: 0 4px;
 }
-#domain-list button:hover { color: #f87171; }
+#domain-list button:hover, #channel-list button:hover { color: #f87171; }
+
+#channel-form { display: flex; gap: 8px; margin-bottom: 12px; }
+#channel-input {
+  flex: 1;
+  background: var(--surface);
+  border: 1px solid var(--surface-2);
+  border-radius: 8px;
+  padding: 8px 10px;
+  color: var(--text);
+  font-size: 13px;
+}
+#channel-input:focus { outline: none; border-color: var(--accent); }
+#channel-form button {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+}
+#channel-form button:hover { background: #4f46e5; }
 
 .empty { color: var(--muted); font-size: 13px; font-style: italic; }
+.hint { color: var(--muted); font-size: 12px; line-height: 1.5; margin-bottom: 10px; }
 .hidden { display: none; }
 
 .toggle {

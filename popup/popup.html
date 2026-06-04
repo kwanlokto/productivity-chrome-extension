@@ -47,6 +47,21 @@
       <input type="checkbox" data-yt="grayscale" />
       <span>Grayscale mode</span>
     </label>
+    <label class="toggle">
+      <input type="checkbox" data-yt="educationalOnly" />
+      <span>Educational only (channel allowlist)</span>
+    </label>
+  </section>
+
+  <section id="channels-section">
+    <h2>Allowed channels</h2>
+    <p class="hint">Only videos from these channels show when “Educational only” is on. Use the channel handle.</p>
+    <form id="channel-form">
+      <input id="channel-input" type="text" placeholder="add a channel, e.g. @veritasium" autocomplete="off" />
+      <button type="submit">Add</button>
+    </form>
+    <ul id="channel-list"></ul>
+    <p id="channel-empty" class="empty hidden">No channels allowed yet — everything will be hidden.</p>
   </section>
 
   <script src="popup.js"></script>

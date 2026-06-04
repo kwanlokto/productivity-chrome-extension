@@ -49,3 +49,43 @@ html.fg-hide-comments ytd-comments {
 html.fg-grayscale {
   filter: grayscale(100%) !important;
 }
+
+/* --- Educational-only: hidden feed/search/sidebar items --- */
+.fg-edu-hidden {
+  display: none !important;
+}
+
+/* --- Educational-only: watch-page block overlay --- */
+#fg-edu-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  background: rgba(15, 23, 42, 0.97);
+  color: #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+#fg-edu-overlay .fg-box { max-width: 460px; padding: 40px 32px; }
+#fg-edu-overlay .fg-emoji { font-size: 60px; margin-bottom: 12px; }
+#fg-edu-overlay h1 { font-size: 24px; font-weight: 700; margin: 0 0 10px; }
+#fg-edu-overlay p { font-size: 15px; color: #94a3b8; line-height: 1.6; margin: 0 0 26px; }
+#fg-edu-overlay .fg-actions { display: flex; gap: 12px; justify-content: center; }
+#fg-edu-overlay button {
+  border: none;
+  border-radius: 10px;
+  padding: 12px 22px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+#fg-edu-overlay #fg-go-back { background: #6366f1; color: #fff; }
+#fg-edu-overlay #fg-go-back:hover { background: #4f46e5; }
+#fg-edu-overlay #fg-watch-anyway {
+  background: transparent;
+  color: #94a3b8;
+  border: 1px solid #334155;
+}
+#fg-edu-overlay #fg-watch-anyway:hover { color: #e2e8f0; border-color: #475569; }

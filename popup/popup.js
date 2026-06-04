@@ -7,7 +7,8 @@ const DEFAULT_YOUTUBE = {
   hideHomeFeed: true,
   hideRelated: true,
   hideComments: false,
-  grayscale: false
+  grayscale: false,
+  educationalOnly: false
 };
 
 const listEl = document.getElementById("domain-list");
@@ -90,7 +91,64 @@ function bindYoutubeToggles(settings) {
   });
 }
 
+// --- Allowed channels ---
+const channelListEl = document.getElementById("channel-list");
+const channelEmptyEl = document.getElementById("channel-empty");
+const channelFormEl = document.getElementById("channel-form");
+const channelInputEl = document.getElementById("channel-input");
+
+function normalizeChannel(input) {
+  return String(input || "").trim().replace(/^@/, "").replace(/\s+/g, "").toLowerCase();
+}
+
+async function getChannels() {
+  const { allowedChannels = [] } = await chrome.storage.sync.get("allowedChannels");
+  return allowedChannels;
+}
+
+async function setChannels(channels) {
+  await chrome.storage.sync.set({ allowedChannels: channels });
+}
+
+function renderChannels(channels) {
+  channelListEl.innerHTML = "";
+  channelEmptyEl.classList.toggle("hidden", channels.length > 0);
+  for (const channel of channels) {
+    const li = document.createElement("li");
+    const span = document.createElement("span");
+    span.textContent = "@" + channel;
+    const btn = document.createElement("button");
+    btn.textContent = "✕";
+    btn.title = "Remove";
+    btn.addEventListener("click", () => removeChannel(channel));
+    li.append(span, btn);
+    channelListEl.appendChild(li);
+  }
+}
+
+async function removeChannel(channel) {
+  const channels = await getChannels();
+  await setChannels(channels.filter((c) => c !== channel));
+  renderChannels(await getChannels());
+}
+
+channelFormEl.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const channel = normalizeChannel(channelInputEl.value);
+  if (!channel) {
+    channelInputEl.value = "";
+    return;
+  }
+  const channels = await getChannels();
+  if (!channels.includes(channel)) {
+    await setChannels([...channels, channel]);
+    renderChannels(await getChannels());
+  }
+  channelInputEl.value = "";
+});
+
 (async function init() {
   renderDomains(await getDomains());
   bindYoutubeToggles(await getYoutube());
+  renderChannels(await getChannels());
 })();

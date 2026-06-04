@@ -9,8 +9,22 @@ const DEFAULT_YOUTUBE = {
   hideHomeFeed: true,
   hideRelated: true,
   hideComments: false,
-  grayscale: false
+  grayscale: false,
+  educationalOnly: false
 };
+
+// Seed allowlist so "educational only" isn't empty (which would hide everything)
+// the first time it's switched on. Stored as channel handles (without the @).
+const DEFAULT_CHANNELS = [
+  "khanacademy",
+  "veritasium",
+  "3blue1brown",
+  "mitocw",
+  "crashcourse",
+  "TED",
+  "TEDEd",
+  "kurzgesagt"
+];
 
 // Normalize user input into a bare registrable domain, e.g.
 // "https://www.Facebook.com/feed" -> "facebook.com"
@@ -63,10 +77,11 @@ function syncRules() {
 
 // Seed defaults on first install, then sync.
 chrome.runtime.onInstalled.addListener(async () => {
-  const stored = await chrome.storage.sync.get(["blockedDomains", "youtube"]);
+  const stored = await chrome.storage.sync.get(["blockedDomains", "youtube", "allowedChannels"]);
   const seed = {};
   if (!stored.blockedDomains) seed.blockedDomains = DEFAULT_BLOCKED;
   if (!stored.youtube) seed.youtube = DEFAULT_YOUTUBE;
+  if (!stored.allowedChannels) seed.allowedChannels = DEFAULT_CHANNELS;
   if (Object.keys(seed).length) await chrome.storage.sync.set(seed);
   await syncRules();
 });
