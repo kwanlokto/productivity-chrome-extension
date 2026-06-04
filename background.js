@@ -10,11 +10,11 @@ const DEFAULT_YOUTUBE = {
   hideRelated: true,
   hideComments: false,
   grayscale: false,
-  educationalOnly: false
+  allowedChannelsOnly: false
 };
 
-// Seed allowlist so "educational only" isn't empty (which would hide everything)
-// the first time it's switched on. Stored as channel handles (without the @).
+// Seed allowlist so "Allowed channels only" isn't empty (which would hide
+// everything) the first time it's switched on. Stored as channel handles (no @).
 const DEFAULT_CHANNELS = [
   "khanacademy",
   "veritasium",

@@ -146,3 +146,7 @@ section h2 {
   cursor: pointer;
 }
 .toggle input { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+
+/* Sub-options inactive while "Enable YouTube tweaks" is off. */
+.toggle.is-disabled { opacity: 0.4; pointer-events: none; }
+#channels-section.is-disabled { opacity: 0.4; pointer-events: none; }

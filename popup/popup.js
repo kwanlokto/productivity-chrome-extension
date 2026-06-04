@@ -8,7 +8,7 @@ const DEFAULT_YOUTUBE = {
   hideRelated: true,
   hideComments: false,
   grayscale: false,
-  educationalOnly: false
+  allowedChannelsOnly: false
 };
 
 const listEl = document.getElementById("domain-list");
@@ -79,6 +79,20 @@ async function getYoutube() {
   return { ...DEFAULT_YOUTUBE, ...youtube };
 }
 
+// Disable + gray out every YouTube sub-option when the master toggle is off.
+function applyYoutubeEnabled(enabled) {
+  document.querySelectorAll('[data-yt]').forEach((el) => {
+    if (el.dataset.yt === "enabled") return; // never disable the master itself
+    el.disabled = !enabled;
+    el.closest(".toggle")?.classList.toggle("is-disabled", !enabled);
+  });
+  // The Allowed channels section depends on the YouTube tweaks too.
+  const channelsSection = document.getElementById("channels-section");
+  channelsSection?.classList.toggle("is-disabled", !enabled);
+  channelInputEl.disabled = !enabled;
+  channelFormEl.querySelector("button").disabled = !enabled;
+}
+
 function bindYoutubeToggles(settings) {
   document.querySelectorAll("[data-yt]").forEach((el) => {
     const key = el.dataset.yt;
@@ -87,8 +101,10 @@ function bindYoutubeToggles(settings) {
       const current = await getYoutube();
       current[key] = el.checked;
       await chrome.storage.sync.set({ youtube: current });
+      if (key === "enabled") applyYoutubeEnabled(el.checked);
     });
   });
+  applyYoutubeEnabled(Boolean(settings.enabled));
 }
 
 // --- Allowed channels ---

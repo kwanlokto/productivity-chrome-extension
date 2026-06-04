@@ -1,6 +1,6 @@
 // Focus Guard — YouTube content script.
 // 1. Toggles <html> classes that drive youtube.css (Shorts/feed/related/etc.).
-// 2. "Educational only" mode: keeps a channel allowlist, hides non-allowlisted
+// 2. "Allowed channels only" mode: keeps a channel allowlist, hides non-allowlisted
 //    videos in feeds/search/sidebar, and blocks non-allowlisted watch pages.
 
 const DEFAULT_YOUTUBE = {
@@ -10,7 +10,7 @@ const DEFAULT_YOUTUBE = {
   hideRelated: true,
   hideComments: false,
   grayscale: false,
-  educationalOnly: false
+  allowedChannelsOnly: false
 };
 
 const CLASS_MAP = {
@@ -83,7 +83,7 @@ const ITEM_SELECTOR = [
 
 // Hide feed/search/sidebar items that aren't from an allowlisted channel.
 function filterItems() {
-  const active = settings.enabled && settings.educationalOnly;
+  const active = settings.enabled && settings.allowedChannelsOnly;
   const items = document.querySelectorAll(ITEM_SELECTOR);
   for (const item of items) {
     if (!active) {
@@ -120,8 +120,8 @@ function showOverlay(videoId, info) {
   overlay.innerHTML = `
     <div class="fg-box">
       <div class="fg-emoji">📚</div>
-      <h1>Not on your learning list</h1>
-      <p>${info.name ? escapeHtml(info.name) : "This channel"} isn't in your educational channel allowlist.</p>
+      <h1>Channel not allowed</h1>
+      <p>${info.name ? escapeHtml(info.name) : "This channel"} isn't in your allowed channels list.</p>
       <div class="fg-actions">
         <button id="fg-go-back">← Go back</button>
         <button id="fg-watch-anyway">Watch anyway</button>
@@ -147,7 +147,7 @@ function escapeHtml(s) {
 }
 
 function enforceWatchPage() {
-  if (!(settings.enabled && settings.educationalOnly) || location.pathname !== "/watch") {
+  if (!(settings.enabled && settings.allowedChannelsOnly) || location.pathname !== "/watch") {
     removeOverlay();
     return;
   }
