@@ -141,23 +141,69 @@ formEl.addEventListener("submit", async (e) => {
 });
 
 // --- Snooze ---
+// All snooze operations run directly in the popup (no background messaging) so we
+// know the rule is definitely updated before we navigate the tab.
+
 async function getSnoozed() {
-  return chrome.runtime.sendMessage({ type: "getSnoozed" });
+  const { snoozed = {} } = await chrome.storage.local.get("snoozed");
+  const now = Date.now();
+  return Object.fromEntries(Object.entries(snoozed).filter(([, exp]) => exp > now));
 }
 
 async function snooze(domain, minutes) {
-  await chrome.runtime.sendMessage({ type: "snooze", domain, minutes });
-  // Navigate the blocked tab to the now-unblocked site.
+  // 1. Persist the snooze so the background alarm handler and popup both read it.
+  const expiresAt = Date.now() + minutes * 60 * 1000;
+  const { snoozed = {} } = await chrome.storage.local.get("snoozed");
+  snoozed[domain] = expiresAt;
+  await chrome.storage.local.set({ snoozed });
+
+  // 2. Remove the blocking rule directly — guaranteed synchronous from our side.
+  const existing = await chrome.declarativeNetRequest.getDynamicRules();
+  const rule = existing.find(r => r.condition.urlFilter === "||" + domain + "^");
+  if (rule) {
+    await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds: [rule.id] });
+  }
+
+  // 3. Create the alarm that wakes the background to restore the rule when it expires.
+  await chrome.alarms.create("snooze:" + domain, { delayInMinutes: minutes });
+
+  // 4. Now it's safe to navigate — the rule is already gone.
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (tab?.id) chrome.tabs.update(tab.id, { url: "https://" + domain });
-  // Popup closes when the tab navigates — no need to re-render.
+
+  // 5. Update the status bar for the edge case where the popup stays open.
+  await updateStatusBar();
 }
 
 async function unsnooze(domain) {
-  await chrome.runtime.sendMessage({ type: "unsnooze", domain });
-  // Reload the tab — the restored blocking rule will redirect it to blocked.html.
+  // 1. Remove from snooze storage.
+  const { snoozed = {} } = await chrome.storage.local.get("snoozed");
+  delete snoozed[domain];
+  await chrome.storage.local.set({ snoozed });
+
+  // 2. Clear the alarm.
+  await chrome.alarms.clear("snooze:" + domain);
+
+  // 3. Re-add the blocking rule directly.
+  const existing = await chrome.declarativeNetRequest.getDynamicRules();
+  const maxId = existing.reduce((m, r) => Math.max(m, r.id), 0);
+  await chrome.declarativeNetRequest.updateDynamicRules({
+    addRules: [{
+      id: maxId + 1,
+      priority: 1,
+      action: {
+        type: "redirect",
+        redirect: { extensionPath: "/blocked.html?domain=" + encodeURIComponent(domain) }
+      },
+      condition: { urlFilter: "||" + domain + "^", resourceTypes: ["main_frame"] }
+    }]
+  });
+
+  // 4. Reload — the restored rule will immediately redirect to blocked.html.
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (tab?.id) chrome.tabs.reload(tab.id);
+
+  await updateStatusBar();
 }
 
 // --- Current-tab status bar ---

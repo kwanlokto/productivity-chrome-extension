@@ -84,25 +84,6 @@ function syncRules() {
   return syncChain;
 }
 
-// --- Snooze API (called from popup via chrome.runtime.sendMessage) ---
-async function snooze(domain, minutes) {
-  const expiresAt = Date.now() + minutes * 60 * 1000;
-  const snoozed = await getSnoozed();
-  snoozed[domain] = expiresAt;
-  await setSnoozed(snoozed);
-  // Alarm name encodes the domain so we know what to restore on fire.
-  await chrome.alarms.create("snooze:" + domain, { delayInMinutes: minutes });
-  await syncRules();
-}
-
-async function unsnooze(domain) {
-  const snoozed = await getSnoozed();
-  delete snoozed[domain];
-  await setSnoozed(snoozed);
-  await chrome.alarms.clear("snooze:" + domain);
-  await syncRules();
-}
-
 // Restore blocking when snooze expires.
 chrome.alarms.onAlarm.addListener(async (alarm) => {
   if (!alarm.name.startsWith("snooze:")) return;
@@ -113,21 +94,6 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
   await syncRules();
 });
 
-// --- Message handler for popup ---
-chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
-  if (msg.type === "snooze") {
-    snooze(msg.domain, msg.minutes).then(() => sendResponse({ ok: true }));
-    return true; // keep channel open for async response
-  }
-  if (msg.type === "unsnooze") {
-    unsnooze(msg.domain).then(() => sendResponse({ ok: true }));
-    return true;
-  }
-  if (msg.type === "getSnoozed") {
-    getSnoozed().then((s) => sendResponse(s));
-    return true;
-  }
-});
 
 // --- Install / startup ---
 chrome.runtime.onInstalled.addListener(async () => {
