@@ -9,6 +9,7 @@ import * as actions from "./actions.js";
 // DOM refs (populated in initSitesView).
 let listEl, emptyEl, formEl, inputEl;
 let actionWrap, actionCircle, ringProgress, circleMain, circleSub;
+let mainView, manageView, openManageBtn, backBtn;
 
 // Handle for the live countdown interval, so we can cancel it on re-render.
 let countdownTimer = null;
@@ -164,6 +165,21 @@ function run(action) {
     .catch((e) => console.error("[Focus Guard] action failed:", e));
 }
 
+/**
+ * Switch between the main (circle) view and the manage-list view.
+ * @param {boolean} showManage
+ */
+function setManageView(showManage) {
+  mainView.classList.toggle("hidden", showManage);
+  manageView.classList.toggle("hidden", !showManage);
+}
+
+/** Wire the "Change blocked sites" / back navigation. */
+function bindManageNav() {
+  openManageBtn.addEventListener("click", () => setManageView(true));
+  backBtn.addEventListener("click", () => setManageView(false));
+}
+
 /** Wire up the add-domain form. */
 function bindAddForm() {
   formEl.addEventListener("submit", (e) => {
@@ -192,6 +208,12 @@ export function initSitesView() {
   circleMain = document.getElementById("circle-main");
   circleSub = document.getElementById("circle-sub");
 
+  mainView = document.getElementById("sites-main");
+  manageView = document.getElementById("sites-manage");
+  openManageBtn = document.getElementById("open-manage");
+  backBtn = document.getElementById("back-to-main");
+
+  bindManageNav();
   bindAddForm();
   refresh();
 }

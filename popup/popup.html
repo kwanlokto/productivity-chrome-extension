@@ -18,33 +18,39 @@
 
   <div class="panel is-active" data-panel="sites">
 
-    <!-- Current-tab action -->
-    <section id="status-section">
-      <!-- One big circular control whose label + action depend on state -->
-      <div id="action-circle-wrap" class="hidden">
-        <button id="action-circle" type="button">
-          <svg class="ring" viewBox="0 0 120 120">
-            <circle class="ring-track" cx="60" cy="60" r="54"></circle>
-            <circle class="ring-progress hidden" cx="60" cy="60" r="54"></circle>
-          </svg>
-          <span class="circle-text">
-            <span class="circle-main" id="circle-main"></span>
-            <span class="circle-sub" id="circle-sub"></span>
-          </span>
-        </button>
-      </div>
-    </section>
+    <!-- Main view: current-tab action circle + entry to the list editor -->
+    <div id="sites-main">
+      <section id="status-section">
+        <!-- One big circular control whose label + action depend on state -->
+        <div id="action-circle-wrap" class="hidden">
+          <button id="action-circle" type="button">
+            <svg class="ring" viewBox="0 0 120 120">
+              <circle class="ring-track" cx="60" cy="60" r="54"></circle>
+              <circle class="ring-progress hidden" cx="60" cy="60" r="54"></circle>
+            </svg>
+            <span class="circle-text">
+              <span class="circle-main" id="circle-main"></span>
+              <span class="circle-sub" id="circle-sub"></span>
+            </span>
+          </button>
+        </div>
+      </section>
+      <button id="open-manage" class="wide-btn">Change blocked sites</button>
+    </div>
 
-    <!-- Blocked sites list -->
-    <section>
-      <h2>Blocked sites</h2>
-      <form id="add-form">
-        <input id="domain-input" type="text" placeholder="add a domain, e.g. reddit.com" autocomplete="off" />
-        <button type="submit">Add</button>
-      </form>
-      <ul id="domain-list"></ul>
-      <p id="empty" class="empty hidden">No sites blocked yet.</p>
-    </section>
+    <!-- Manage view: add/remove blocked sites -->
+    <div id="sites-manage" class="hidden">
+      <button id="back-to-main" class="back-link">← Back</button>
+      <section>
+        <h2>Blocked sites</h2>
+        <form id="add-form">
+          <input id="domain-input" type="text" placeholder="add a domain, e.g. reddit.com" autocomplete="off" />
+          <button type="submit">Add</button>
+        </form>
+        <ul id="domain-list"></ul>
+        <p id="empty" class="empty hidden">No sites blocked yet.</p>
+      </section>
+    </div>
 
   </div>
 
