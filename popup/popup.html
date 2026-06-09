@@ -18,30 +18,20 @@
 
   <div class="panel is-active" data-panel="sites">
 
-    <!-- Current-tab status -->
+    <!-- Current-tab action -->
     <section id="status-section">
-      <div id="status-bar">
-        <span id="status-dot"></span>
-        <span id="status-label">Checking…</span>
-        <span id="status-countdown" class="hidden"></span>
-      </div>
-      <!-- Snooze controls — shown only when current tab is blocked -->
-      <div id="snooze-bar" class="hidden">
-        <span class="snooze-label">Unblock for</span>
-        <div class="snooze-btns">
-          <button class="snooze-btn" data-min="5">5 min</button>
-          <button class="snooze-btn" data-min="15">15 min</button>
-          <button class="snooze-btn" data-min="30">30 min</button>
-          <button class="snooze-btn" data-min="60">1 hr</button>
-        </div>
-      </div>
-      <!-- Cancel snooze — shown only when current tab is snoozed -->
-      <div id="unsnooze-bar" class="hidden">
-        <button id="unsnooze-btn">Re-block now</button>
-      </div>
-      <!-- Quick-block — shown only when current tab is NOT blocked -->
-      <div id="block-current-bar" class="hidden">
-        <button id="block-current-btn">＋ Block this site</button>
+      <!-- One big circular control whose label + action depend on state -->
+      <div id="action-circle-wrap" class="hidden">
+        <button id="action-circle" type="button">
+          <svg class="ring" viewBox="0 0 120 120">
+            <circle class="ring-track" cx="60" cy="60" r="54"></circle>
+            <circle class="ring-progress hidden" cx="60" cy="60" r="54"></circle>
+          </svg>
+          <span class="circle-text">
+            <span class="circle-main" id="circle-main"></span>
+            <span class="circle-sub" id="circle-sub"></span>
+          </span>
+        </button>
       </div>
     </section>
 

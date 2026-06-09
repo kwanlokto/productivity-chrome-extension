@@ -34,13 +34,18 @@ function normalizeDomain(input) {
 }
 
 // --- Snooze helpers ---
-// Snoozed domains live in local storage as { domain -> expiresAt (ms timestamp) }.
+// Snoozed domains live in local storage as { domain -> { start, expiry } }.
+// (Older entries may be a bare expiry timestamp — tolerate both.)
+function expiryOf(entry) {
+  return typeof entry === "number" ? entry : entry.expiry;
+}
+
 async function getSnoozed() {
   const { snoozed = {} } = await chrome.storage.local.get("snoozed");
   // Purge any already-expired entries.
   const now = Date.now();
   const active = Object.fromEntries(
-    Object.entries(snoozed).filter(([, exp]) => exp > now)
+    Object.entries(snoozed).filter(([, v]) => expiryOf(v) > now)
   );
   return active;
 }
@@ -108,8 +113,9 @@ chrome.runtime.onInstalled.addListener(async () => {
 
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === "sync" && changes.blockedDomains) syncRules();
-  // Re-sync if snooze state changes (e.g. from another popup instance).
-  if (area === "local" && changes.snoozed) syncRules();
+  // NOTE: we deliberately do NOT re-sync on snooze changes. The popup owns the
+  // rule add/remove for snooze/unsnooze directly; re-syncing here races with it
+  // and can re-add a rule the popup just removed (re-blocking a snoozed site).
 });
 
 chrome.runtime.onStartup.addListener(syncRules);
