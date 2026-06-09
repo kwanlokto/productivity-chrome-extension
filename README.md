@@ -21,13 +21,32 @@ distracting sites and taming YouTube's doom-scroll machinery.
 
 | Piece | Role |
 |-------|------|
-| [background.js](background.js) | Syncs `declarativeNetRequest` dynamic rules from your blocked-domain list and redirects matching `main_frame` loads to the blocked page. |
+| [background.js](background.js) | Syncs `declarativeNetRequest` dynamic rules from your blocked-domain list and redirects matching `main_frame` loads to the blocked page; restores blocks when a snooze alarm fires. |
 | [blocked.html](blocked.html) / [blocked.js](blocked.js) | The "stay focused" page shown when a blocked site is opened. |
-| [popup/](popup/) | The toolbar UI for managing domains and YouTube settings. |
+| [popup/](popup/) | The toolbar UI (ES modules — see below). |
 | [content/youtube.js](content/youtube.js) / [content/youtube.css](content/youtube.css) | Toggle `<html>` classes that hide distracting YouTube elements; re-applies across SPA navigation. |
 
-Settings live in `chrome.storage.sync` under two keys: `blockedDomains` (array of
-bare domains) and `youtube` (the feature toggles).
+### Popup modules
+
+The popup ([popup/popup.html](popup/popup.html)) loads [popup/popup.js](popup/popup.js)
+as an ES module, which is split by concern:
+
+| Module | Responsibility |
+|--------|----------------|
+| [config.js](popup/config.js) | Constants (defaults, snooze length, ring geometry). |
+| [util.js](popup/util.js) | Pure helpers: domain/channel normalization, clock formatting. |
+| [storage.js](popup/storage.js) | All `chrome.storage` reads/writes (domains, YouTube settings, channels, snooze). |
+| [rules.js](popup/rules.js) | Add/remove `declarativeNetRequest` blocking rules directly. |
+| [tabs.js](popup/tabs.js) | `chrome.tabs` helpers (active tab, current domain, navigate, reload). |
+| [actions.js](popup/actions.js) | High-level actions (add/remove/block/snooze/unsnooze) combining the above. |
+| [sites-view.js](popup/sites-view.js) | "Blocked sites" tab: list + the circular status/action control. |
+| [youtube-view.js](popup/youtube-view.js) | "YouTube" tab: focus toggles + allowed-channels list. |
+| [popup.js](popup/popup.js) | Entry point: tab navigation + view init. |
+
+Settings live in `chrome.storage.sync` under `blockedDomains` (array of bare
+domains), `youtube` (the feature toggles), and `allowedChannels` (allow-listed
+handles). Active snoozes live in `chrome.storage.local` under `snoozed`
+(`{ domain: { start, expiry } }`).
 
 ## Install (developer / unpacked)
 

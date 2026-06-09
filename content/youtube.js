@@ -25,6 +25,8 @@ let allowedChannels = [];
 const bypassed = new Set();
 
 // ---------- CSS-class toggles ----------
+
+/** Toggle each feature's <html> classes based on the current settings. */
 function applyClasses() {
   const root = document.documentElement;
   for (const [key, classNames] of Object.entries(CLASS_MAP)) {
@@ -34,10 +36,21 @@ function applyClasses() {
 }
 
 // ---------- Channel matching ----------
+
+/**
+ * Normalize a channel handle/name for comparison (lowercase, strip @).
+ * @param {string} s
+ * @returns {string}
+ */
 function normChannel(s) {
   return String(s || "").toLowerCase().replace(/^@/, "").trim();
 }
 
+/**
+ * Is the channel (by handle or display name) on the allow list?
+ * @param {{ handle: string, name: string }} info
+ * @returns {boolean}
+ */
 function channelAllowed(info) {
   const handle = normChannel(info.handle);
   const name = normChannel(info.name);
@@ -48,7 +61,12 @@ function channelAllowed(info) {
   });
 }
 
-// Pull a channel handle (/@handle) and display name out of a video card.
+/**
+ * Pull a channel handle (/@handle) and display name out of a video card or
+ * watch-page owner element.
+ * @param {Element} scope element to search within
+ * @returns {{ handle: string, name: string, hasInfo: boolean }}
+ */
 function getChannelInfo(scope) {
   const link =
     scope.querySelector('a[href^="/@"]') ||
@@ -79,7 +97,7 @@ const ITEM_SELECTOR = [
   "ytd-compact-video-renderer"
 ].join(",");
 
-// Hide feed/search/sidebar items that aren't from an allowlisted channel.
+/** Hide feed/search/sidebar video cards that aren't from an allow-listed channel. */
 function filterItems() {
   const active = settings.enabled && settings.allowedChannelsOnly;
   const items = document.querySelectorAll(ITEM_SELECTOR);
@@ -96,6 +114,11 @@ function filterItems() {
 }
 
 // ---------- Watch-page block overlay ----------
+
+/**
+ * Channel info for the video on the current watch page.
+ * @returns {{ handle: string, name: string, hasInfo: boolean }}
+ */
 function getWatchChannelInfo() {
   const owner =
     document.querySelector("ytd-watch-metadata #owner") ||
@@ -104,10 +127,16 @@ function getWatchChannelInfo() {
   return owner ? getChannelInfo(owner) : { handle: "", name: "", hasInfo: false };
 }
 
+/** Remove the watch-page block overlay if present. */
 function removeOverlay() {
   document.getElementById("fg-edu-overlay")?.remove();
 }
 
+/**
+ * Pause the video and show the "channel not allowed" block overlay.
+ * @param {string|null} videoId current video id (for the "watch anyway" bypass)
+ * @param {{ name: string }} info channel info, for the message
+ */
 function showOverlay(videoId, info) {
   // Pause whatever is playing.
   document.querySelector("video")?.pause();
@@ -138,12 +167,18 @@ function showOverlay(videoId, info) {
   });
 }
 
+/**
+ * Escape a string for safe insertion into overlay HTML.
+ * @param {string} s
+ * @returns {string}
+ */
 function escapeHtml(s) {
   return s.replace(/[&<>"']/g, (c) =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])
   );
 }
 
+/** Show/clear the block overlay for the current watch page per the allow list. */
 function enforceWatchPage() {
   if (!(settings.enabled && settings.allowedChannelsOnly) || location.pathname !== "/watch") {
     removeOverlay();
@@ -165,6 +200,8 @@ function enforceWatchPage() {
 
 // ---------- Run loop ----------
 let scheduled = false;
+
+/** Coalesce rapid DOM mutations into one apply pass per animation frame. */
 function refresh() {
   if (scheduled) return;
   scheduled = true;
@@ -176,6 +213,7 @@ function refresh() {
   });
 }
 
+/** Load settings from storage and kick off the first pass. */
 function loadAndStart() {
   chrome.storage.sync.get(["youtube", "allowedChannels"]).then((data) => {
     settings = { ...DEFAULT_YOUTUBE, ...(data.youtube || {}) };

@@ -23,6 +23,11 @@ const DEFAULT_CHANNELS = [
   "kurzgesagt"
 ];
 
+/**
+ * Reduce user input to a bare registrable domain (mirror of the popup helper).
+ * @param {string} input
+ * @returns {string}
+ */
 function normalizeDomain(input) {
   if (!input) return "";
   let d = String(input).trim().toLowerCase();
@@ -36,10 +41,20 @@ function normalizeDomain(input) {
 // --- Snooze helpers ---
 // Snoozed domains live in local storage as { domain -> { start, expiry } }.
 // (Older entries may be a bare expiry timestamp — tolerate both.)
+
+/**
+ * Read the expiry timestamp out of a snooze entry (object or legacy number).
+ * @param {number | { expiry: number }} entry
+ * @returns {number}
+ */
 function expiryOf(entry) {
   return typeof entry === "number" ? entry : entry.expiry;
 }
 
+/**
+ * Active snooze map with expired entries purged.
+ * @returns {Promise<Record<string, unknown>>}
+ */
 async function getSnoozed() {
   const { snoozed = {} } = await chrome.storage.local.get("snoozed");
   // Purge any already-expired entries.
@@ -50,11 +65,22 @@ async function getSnoozed() {
   return active;
 }
 
+/**
+ * Persist the snooze map.
+ * @param {Record<string, unknown>} snoozed
+ */
 async function setSnoozed(snoozed) {
   await chrome.storage.local.set({ snoozed });
 }
 
 // --- Rule building ---
+
+/**
+ * Build one redirect-to-blocked-page rule per blocked, non-snoozed domain.
+ * @param {string[]} domains
+ * @param {Record<string, unknown>} snoozed
+ * @returns {chrome.declarativeNetRequest.Rule[]}
+ */
 function buildRules(domains, snoozed) {
   return domains
     .filter((d) => !snoozed[d]) // skip currently snoozed domains
@@ -74,6 +100,7 @@ function buildRules(domains, snoozed) {
     }));
 }
 
+/** Replace all dynamic rules with a fresh set built from current state. */
 async function doSyncRules() {
   const { blockedDomains = DEFAULT_BLOCKED } = await chrome.storage.sync.get("blockedDomains");
   const snoozed = await getSnoozed();
@@ -83,7 +110,10 @@ async function doSyncRules() {
   await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds, addRules });
 }
 
+// Serialize sync calls so concurrent triggers can't race into a duplicate-id error.
 let syncChain = Promise.resolve();
+
+/** Queue a rule re-sync behind any in-flight one. */
 function syncRules() {
   syncChain = syncChain.then(doSyncRules, doSyncRules);
   return syncChain;
