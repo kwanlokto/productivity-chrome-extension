@@ -60,6 +60,20 @@ function renderDomains(domains, snoozed = {}) {
 async function removeDomain(domain) {
   const domains = await getDomains();
   await setDomains(domains.filter((d) => d !== domain));
+  await removeBlockRule(domain); // drop the rule now, before any navigation
+
+  // If the current tab is stuck on OUR blocked page for this domain, send it through.
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (tab?.url && tab.id) {
+    try {
+      const url = new URL(tab.url);
+      const onBlockedPage =
+        url.pathname.endsWith("blocked.html") && url.searchParams.get("domain") === domain;
+      if (onBlockedPage) chrome.tabs.update(tab.id, { url: "https://" + domain });
+    } catch {}
+  }
+
+  // Always refresh the popup UI — it stays open even when the tab navigates.
   const [fresh, snoozed] = await Promise.all([getDomains(), getSnoozed()]);
   renderDomains(fresh, snoozed);
   updateStatusBar();
@@ -118,6 +132,15 @@ async function snooze(domain, minutes) {
   await updateStatusBar();
 }
 
+// Remove the blocking rule for a domain directly (no-op if none exists).
+async function removeBlockRule(domain) {
+  const existing = await chrome.declarativeNetRequest.getDynamicRules();
+  const rule = existing.find(r => r.condition.urlFilter === "||" + domain + "^");
+  if (rule) {
+    await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds: [rule.id] });
+  }
+}
+
 // Add a blocking rule for a domain directly (no-op if one already exists).
 async function addBlockRule(domain) {
   const existing = await chrome.declarativeNetRequest.getDynamicRules();
@@ -164,6 +187,11 @@ async function blockCurrentSite(domain) {
   await addBlockRule(domain); // immediate, so the reload is caught
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (tab?.id) chrome.tabs.reload(tab.id);
+
+  // Refresh the popup UI — it stays open even as the tab reloads.
+  const [fresh, snoozed] = await Promise.all([getDomains(), getSnoozed()]);
+  renderDomains(fresh, snoozed);
+  updateStatusBar();
 }
 
 // --- Current-tab status bar ---
