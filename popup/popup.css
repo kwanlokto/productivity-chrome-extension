@@ -88,27 +88,139 @@ section h2 {
 }
 #add-form button:hover { background: #4f46e5; }
 
+/* --- Status bar --- */
+#status-section { margin-bottom: 18px; }
+
+#status-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 13px;
+}
+.dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.dot-green  { background: #4ade80; box-shadow: 0 0 6px #4ade8088; }
+.dot-red    { background: #f87171; box-shadow: 0 0 6px #f8717188; }
+.dot-yellow { background: #fbbf24; box-shadow: 0 0 6px #fbbf2488; }
+
+#status-label { flex: 1; color: var(--text); }
+#status-countdown { color: #fbbf24; font-size: 12px; font-variant-numeric: tabular-nums; }
+
+/* Snooze buttons */
+#snooze-bar {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.snooze-label { font-size: 12px; color: var(--muted); }
+.snooze-btns  { display: flex; gap: 6px; flex-wrap: wrap; }
+.snooze-btn {
+  background: var(--surface-2);
+  border: none;
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 10px;
+  cursor: pointer;
+}
+.snooze-btn:hover { background: var(--accent); color: #fff; }
+
+/* Unsnooze (re-block now) */
+#unsnooze-bar { margin-top: 10px; }
+#unsnooze-btn {
+  background: transparent;
+  border: 1px solid var(--danger);
+  border-radius: 6px;
+  color: var(--danger);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 12px;
+  cursor: pointer;
+  width: 100%;
+}
+#unsnooze-btn:hover { background: var(--danger); color: #fff; }
+
+/* --- Domain list --- */
 #domain-list, #channel-list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
 #domain-list li, #channel-list li {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 6px;
   background: var(--surface);
   border-radius: 8px;
   padding: 8px 12px;
   font-size: 13px;
   font-family: ui-monospace, "SF Mono", Menlo, monospace;
 }
-#domain-list button, #channel-list button {
+#domain-list li.is-snoozed { opacity: 0.5; }
+
+.domain-text { flex: 1; }
+
+/* Inline edit state */
+#domain-list li.is-editing { background: var(--surface-2); flex-wrap: wrap; }
+.domain-edit-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--accent);
+  color: var(--text);
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  padding: 2px 0;
+  min-width: 0;
+}
+
+/* Icon buttons on domain rows */
+#domain-list .btn-edit {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 3px;
+}
+#domain-list .btn-edit:hover { color: var(--text); }
+
+#domain-list .btn-remove, #channel-list button {
   background: transparent;
   border: none;
   color: var(--danger);
   cursor: pointer;
-  font-size: 16px;
+  font-size: 15px;
   line-height: 1;
+  padding: 0 3px;
+}
+#domain-list .btn-remove:hover, #channel-list button:hover { color: #f87171; }
+
+.btn-save {
+  background: var(--accent);
+  border: none;
+  border-radius: 5px;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+.btn-cancel {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 14px;
+  cursor: pointer;
   padding: 0 4px;
 }
-#domain-list button:hover, #channel-list button:hover { color: #f87171; }
 
 #channel-form { display: flex; gap: 8px; margin-bottom: 12px; }
 #channel-input {

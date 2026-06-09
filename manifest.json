@@ -5,7 +5,9 @@
   "description": "Block distracting sites (Facebook, Instagram, TikTok by default) and stop doom scrolling on YouTube.",
   "permissions": [
     "declarativeNetRequest",
-    "storage"
+    "storage",
+    "tabs",
+    "alarms"
   ],
   "host_permissions": [
     "<all_urls>"

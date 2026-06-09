@@ -1,5 +1,6 @@
 // Focus Guard — background service worker
 // Keeps declarativeNetRequest dynamic rules in sync with the user's blocked-domain list.
+// Also handles snooze: temporarily removes a domain's rule for X minutes, then restores it.
 
 const DEFAULT_BLOCKED = ["facebook.com", "instagram.com", "tiktok.com"];
 
@@ -11,8 +12,6 @@ const DEFAULT_YOUTUBE = {
   allowedChannelsOnly: false
 };
 
-// Seed allowlist so "Allowed channels only" isn't empty (which would hide
-// everything) the first time it's switched on. Stored as channel handles (no @).
 const DEFAULT_CHANNELS = [
   "khanacademy",
   "veritasium",
@@ -24,8 +23,6 @@ const DEFAULT_CHANNELS = [
   "kurzgesagt"
 ];
 
-// Normalize user input into a bare registrable domain, e.g.
-// "https://www.Facebook.com/feed" -> "facebook.com"
 function normalizeDomain(input) {
   if (!input) return "";
   let d = String(input).trim().toLowerCase();
@@ -36,44 +33,103 @@ function normalizeDomain(input) {
   return d;
 }
 
-// Build one declarativeNetRequest rule per blocked domain.
-function buildRules(domains) {
-  return domains.map((domain, i) => ({
-    id: i + 1,
-    priority: 1,
-    action: {
-      type: "redirect",
-      redirect: {
-        extensionPath: "/blocked.html?domain=" + encodeURIComponent(domain)
-      }
-    },
-    condition: {
-      // ||domain^ matches the domain and any subdomain.
-      urlFilter: "||" + domain + "^",
-      resourceTypes: ["main_frame"]
-    }
-  }));
+// --- Snooze helpers ---
+// Snoozed domains live in local storage as { domain -> expiresAt (ms timestamp) }.
+async function getSnoozed() {
+  const { snoozed = {} } = await chrome.storage.local.get("snoozed");
+  // Purge any already-expired entries.
+  const now = Date.now();
+  const active = Object.fromEntries(
+    Object.entries(snoozed).filter(([, exp]) => exp > now)
+  );
+  return active;
 }
 
-// Replace all existing dynamic rules with a fresh set generated from storage.
+async function setSnoozed(snoozed) {
+  await chrome.storage.local.set({ snoozed });
+}
+
+// --- Rule building ---
+function buildRules(domains, snoozed) {
+  return domains
+    .filter((d) => !snoozed[d]) // skip currently snoozed domains
+    .map((domain, i) => ({
+      id: i + 1,
+      priority: 1,
+      action: {
+        type: "redirect",
+        redirect: {
+          extensionPath: "/blocked.html?domain=" + encodeURIComponent(domain)
+        }
+      },
+      condition: {
+        urlFilter: "||" + domain + "^",
+        resourceTypes: ["main_frame"]
+      }
+    }));
+}
+
 async function doSyncRules() {
   const { blockedDomains = DEFAULT_BLOCKED } = await chrome.storage.sync.get("blockedDomains");
+  const snoozed = await getSnoozed();
   const existing = await chrome.declarativeNetRequest.getDynamicRules();
   const removeRuleIds = existing.map((r) => r.id);
-  const addRules = buildRules(blockedDomains);
+  const addRules = buildRules(blockedDomains, snoozed);
   await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds, addRules });
 }
 
-// Serialize sync calls. Multiple triggers (install + the storage write it causes,
-// plus startup) can otherwise run concurrently, each read an empty rule set, and
-// then both try to add id 1 -> "Rule with id 1 does not have a unique ID."
 let syncChain = Promise.resolve();
 function syncRules() {
   syncChain = syncChain.then(doSyncRules, doSyncRules);
   return syncChain;
 }
 
-// Seed defaults on first install, then sync.
+// --- Snooze API (called from popup via chrome.runtime.sendMessage) ---
+async function snooze(domain, minutes) {
+  const expiresAt = Date.now() + minutes * 60 * 1000;
+  const snoozed = await getSnoozed();
+  snoozed[domain] = expiresAt;
+  await setSnoozed(snoozed);
+  // Alarm name encodes the domain so we know what to restore on fire.
+  await chrome.alarms.create("snooze:" + domain, { delayInMinutes: minutes });
+  await syncRules();
+}
+
+async function unsnooze(domain) {
+  const snoozed = await getSnoozed();
+  delete snoozed[domain];
+  await setSnoozed(snoozed);
+  await chrome.alarms.clear("snooze:" + domain);
+  await syncRules();
+}
+
+// Restore blocking when snooze expires.
+chrome.alarms.onAlarm.addListener(async (alarm) => {
+  if (!alarm.name.startsWith("snooze:")) return;
+  const domain = alarm.name.slice("snooze:".length);
+  const snoozed = await getSnoozed();
+  delete snoozed[domain];
+  await setSnoozed(snoozed);
+  await syncRules();
+});
+
+// --- Message handler for popup ---
+chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+  if (msg.type === "snooze") {
+    snooze(msg.domain, msg.minutes).then(() => sendResponse({ ok: true }));
+    return true; // keep channel open for async response
+  }
+  if (msg.type === "unsnooze") {
+    unsnooze(msg.domain).then(() => sendResponse({ ok: true }));
+    return true;
+  }
+  if (msg.type === "getSnoozed") {
+    getSnoozed().then((s) => sendResponse(s));
+    return true;
+  }
+});
+
+// --- Install / startup ---
 chrome.runtime.onInstalled.addListener(async () => {
   const stored = await chrome.storage.sync.get(["blockedDomains", "youtube", "allowedChannels"]);
   const seed = {};
@@ -84,12 +140,10 @@ chrome.runtime.onInstalled.addListener(async () => {
   await syncRules();
 });
 
-// Re-sync whenever the blocked list changes.
 chrome.storage.onChanged.addListener((changes, area) => {
-  if (area === "sync" && changes.blockedDomains) {
-    syncRules();
-  }
+  if (area === "sync" && changes.blockedDomains) syncRules();
+  // Re-sync if snooze state changes (e.g. from another popup instance).
+  if (area === "local" && changes.snoozed) syncRules();
 });
 
-// Make sure rules exist after a browser restart / SW wake-up.
 chrome.runtime.onStartup.addListener(syncRules);
