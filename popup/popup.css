@@ -149,6 +149,24 @@ section h2 {
 }
 #unsnooze-btn:hover { background: var(--danger); color: #fff; }
 
+/* Quick-block current site */
+#block-current-bar { margin-top: 10px; }
+#block-current-btn {
+  background: var(--accent);
+  border: none;
+  border-radius: 6px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 12px;
+  cursor: pointer;
+  width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#block-current-btn:hover { background: #4f46e5; }
+
 /* --- Domain list --- */
 #domain-list, #channel-list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
 #domain-list li, #channel-list li {
@@ -165,33 +183,6 @@ section h2 {
 
 .domain-text { flex: 1; }
 
-/* Inline edit state */
-#domain-list li.is-editing { background: var(--surface-2); flex-wrap: wrap; }
-.domain-edit-input {
-  flex: 1;
-  background: transparent;
-  border: none;
-  border-bottom: 1px solid var(--accent);
-  color: var(--text);
-  font-size: 13px;
-  font-family: inherit;
-  outline: none;
-  padding: 2px 0;
-  min-width: 0;
-}
-
-/* Icon buttons on domain rows */
-#domain-list .btn-edit {
-  background: transparent;
-  border: none;
-  color: var(--muted);
-  cursor: pointer;
-  font-size: 14px;
-  line-height: 1;
-  padding: 0 3px;
-}
-#domain-list .btn-edit:hover { color: var(--text); }
-
 #domain-list .btn-remove, #channel-list button {
   background: transparent;
   border: none;
@@ -202,25 +193,6 @@ section h2 {
   padding: 0 3px;
 }
 #domain-list .btn-remove:hover, #channel-list button:hover { color: #f87171; }
-
-.btn-save {
-  background: var(--accent);
-  border: none;
-  border-radius: 5px;
-  color: #fff;
-  font-size: 12px;
-  font-weight: 600;
-  padding: 4px 10px;
-  cursor: pointer;
-}
-.btn-cancel {
-  background: transparent;
-  border: none;
-  color: var(--muted);
-  font-size: 14px;
-  cursor: pointer;
-  padding: 0 4px;
-}
 
 #channel-form { display: flex; gap: 8px; margin-bottom: 12px; }
 #channel-input {
@@ -247,7 +219,7 @@ section h2 {
 
 .empty { color: var(--muted); font-size: 13px; font-style: italic; }
 .hint { color: var(--muted); font-size: 12px; line-height: 1.5; margin-bottom: 10px; }
-.hidden { display: none; }
+.hidden { display: none !important; }
 
 .toggle {
   display: flex;

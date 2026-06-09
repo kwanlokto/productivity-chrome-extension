@@ -33,85 +33,28 @@ async function setDomains(domains) {
   await chrome.storage.sync.set({ blockedDomains: domains });
 }
 
-// --- Domain list with inline editing ---
+// --- Domain list ---
 function renderDomains(domains, snoozed = {}) {
   listEl.innerHTML = "";
   emptyEl.classList.toggle("hidden", domains.length > 0);
 
   for (const domain of domains) {
-    const isSnoozed = Boolean(snoozed[domain]);
     const li = document.createElement("li");
-    if (isSnoozed) li.classList.add("is-snoozed");
+    if (snoozed[domain]) li.classList.add("is-snoozed");
 
-    // Domain display / edit field
     const span = document.createElement("span");
     span.className = "domain-text";
     span.textContent = domain;
 
-    // Edit button
-    const editBtn = document.createElement("button");
-    editBtn.className = "btn-edit";
-    editBtn.title = "Edit";
-    editBtn.textContent = "✎";
-    editBtn.addEventListener("click", () => startEdit(li, domain, domains));
-
-    // Remove button
     const removeBtn = document.createElement("button");
     removeBtn.className = "btn-remove";
     removeBtn.title = "Remove";
     removeBtn.textContent = "✕";
     removeBtn.addEventListener("click", () => removeDomain(domain));
 
-    li.append(span, editBtn, removeBtn);
+    li.append(span, removeBtn);
     listEl.appendChild(li);
   }
-}
-
-function startEdit(li, oldDomain, domains) {
-  // Swap the text span for an inline input.
-  li.classList.add("is-editing");
-  li.innerHTML = "";
-
-  const input = document.createElement("input");
-  input.className = "domain-edit-input";
-  input.value = oldDomain;
-  input.select();
-
-  const saveBtn = document.createElement("button");
-  saveBtn.className = "btn-save";
-  saveBtn.textContent = "Save";
-
-  const cancelBtn = document.createElement("button");
-  cancelBtn.className = "btn-cancel";
-  cancelBtn.textContent = "✕";
-
-  const save = async () => {
-    const newDomain = normalizeDomain(input.value);
-    if (!newDomain || !newDomain.includes(".") || newDomain === oldDomain) {
-      cancel();
-      return;
-    }
-    const updated = domains.map((d) => (d === oldDomain ? newDomain : d));
-    await setDomains(updated);
-    const [fresh, snoozed] = await Promise.all([getDomains(), getSnoozed()]);
-    renderDomains(fresh, snoozed);
-    updateStatusBar();
-  };
-
-  const cancel = async () => {
-    const [fresh, snoozed] = await Promise.all([getDomains(), getSnoozed()]);
-    renderDomains(fresh, snoozed);
-  };
-
-  saveBtn.addEventListener("click", save);
-  cancelBtn.addEventListener("click", cancel);
-  input.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") save();
-    if (e.key === "Escape") cancel();
-  });
-
-  li.append(input, saveBtn, cancelBtn);
-  input.focus();
 }
 
 async function removeDomain(domain) {
@@ -175,17 +118,10 @@ async function snooze(domain, minutes) {
   await updateStatusBar();
 }
 
-async function unsnooze(domain) {
-  // 1. Remove from snooze storage.
-  const { snoozed = {} } = await chrome.storage.local.get("snoozed");
-  delete snoozed[domain];
-  await chrome.storage.local.set({ snoozed });
-
-  // 2. Clear the alarm.
-  await chrome.alarms.clear("snooze:" + domain);
-
-  // 3. Re-add the blocking rule directly.
+// Add a blocking rule for a domain directly (no-op if one already exists).
+async function addBlockRule(domain) {
   const existing = await chrome.declarativeNetRequest.getDynamicRules();
+  if (existing.some(r => r.condition.urlFilter === "||" + domain + "^")) return;
   const maxId = existing.reduce((m, r) => Math.max(m, r.id), 0);
   await chrome.declarativeNetRequest.updateDynamicRules({
     addRules: [{
@@ -198,6 +134,19 @@ async function unsnooze(domain) {
       condition: { urlFilter: "||" + domain + "^", resourceTypes: ["main_frame"] }
     }]
   });
+}
+
+async function unsnooze(domain) {
+  // 1. Remove from snooze storage.
+  const { snoozed = {} } = await chrome.storage.local.get("snoozed");
+  delete snoozed[domain];
+  await chrome.storage.local.set({ snoozed });
+
+  // 2. Clear the alarm.
+  await chrome.alarms.clear("snooze:" + domain);
+
+  // 3. Re-add the blocking rule directly.
+  await addBlockRule(domain);
 
   // 4. Reload — the restored rule will immediately redirect to blocked.html.
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -206,12 +155,25 @@ async function unsnooze(domain) {
   await updateStatusBar();
 }
 
+// Block the site you're currently on, then bounce the tab to the blocked page.
+async function blockCurrentSite(domain) {
+  const domains = await getDomains();
+  if (!domains.includes(domain)) {
+    await setDomains([...domains, domain]);
+  }
+  await addBlockRule(domain); // immediate, so the reload is caught
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (tab?.id) chrome.tabs.reload(tab.id);
+}
+
 // --- Current-tab status bar ---
 const statusDot       = document.getElementById("status-dot");
 const statusLabel     = document.getElementById("status-label");
 const statusCountdown = document.getElementById("status-countdown");
 const snoozeBar       = document.getElementById("snooze-bar");
 const unsnoozeBar     = document.getElementById("unsnooze-bar");
+const blockCurrentBar = document.getElementById("block-current-bar");
+const blockCurrentBtn = document.getElementById("block-current-btn");
 
 let countdownTimer = null;
 
@@ -255,13 +217,23 @@ async function updateStatusBar() {
   const matchedDomain = tabDomain ? domainMatchesBlocked(tabDomain, domains) : null;
 
   if (!tabDomain || !matchedDomain) {
-    // Not a blocked site
+    // Not a blocked site — offer to block it (if it's a real, blockable domain).
     statusDot.className = "dot dot-green";
     statusLabel.textContent = tabDomain ? `${tabDomain} is not blocked` : "No active tab";
     snoozeBar.classList.add("hidden");
     unsnoozeBar.classList.add("hidden");
+
+    const blockable = tabDomain && tabDomain.includes(".");
+    blockCurrentBar.classList.toggle("hidden", !blockable);
+    if (blockable) {
+      blockCurrentBtn.textContent = `＋ Block ${tabDomain}`;
+      blockCurrentBtn.onclick = () => blockCurrentSite(tabDomain);
+    }
     return;
   }
+
+  // It's a blocked site — never show the quick-block button.
+  blockCurrentBar.classList.add("hidden");
 
   const snoozeExpiry = snoozed[matchedDomain];
 
