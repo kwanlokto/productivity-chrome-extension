@@ -6,13 +6,13 @@ const DEFAULT_YOUTUBE = {
   hideShorts: true,
   hideHomeFeed: true,
   hideWatchDistractions: true,
-  allowedChannelsOnly: false
+  allowedChannelsOnly: false,
 };
 
-const listEl    = document.getElementById("domain-list");
-const emptyEl   = document.getElementById("empty");
-const formEl    = document.getElementById("add-form");
-const inputEl   = document.getElementById("domain-input");
+const listEl = document.getElementById("domain-list");
+const emptyEl = document.getElementById("empty");
+const formEl = document.getElementById("add-form");
+const inputEl = document.getElementById("domain-input");
 
 function normalizeDomain(input) {
   if (!input) return "";
@@ -25,7 +25,8 @@ function normalizeDomain(input) {
 }
 
 async function getDomains() {
-  const { blockedDomains = DEFAULT_BLOCKED } = await chrome.storage.sync.get("blockedDomains");
+  const { blockedDomains = DEFAULT_BLOCKED } =
+    await chrome.storage.sync.get("blockedDomains");
   return blockedDomains;
 }
 
@@ -68,8 +69,10 @@ async function removeDomain(domain) {
     try {
       const url = new URL(tab.url);
       const onBlockedPage =
-        url.pathname.endsWith("blocked.html") && url.searchParams.get("domain") === domain;
-      if (onBlockedPage) chrome.tabs.update(tab.id, { url: "https://" + domain });
+        url.pathname.endsWith("blocked.html") &&
+        url.searchParams.get("domain") === domain;
+      if (onBlockedPage)
+        chrome.tabs.update(tab.id, { url: "https://" + domain });
     } catch {}
   }
 
@@ -110,7 +113,9 @@ function expiryOf(entry) {
 async function getSnoozed() {
   const { snoozed = {} } = await chrome.storage.local.get("snoozed");
   const now = Date.now();
-  return Object.fromEntries(Object.entries(snoozed).filter(([, v]) => expiryOf(v) > now));
+  return Object.fromEntries(
+    Object.entries(snoozed).filter(([, v]) => expiryOf(v) > now),
+  );
 }
 
 async function snooze(domain, minutes) {
@@ -143,27 +148,39 @@ async function snooze(domain, minutes) {
 // Remove the blocking rule for a domain directly (no-op if none exists).
 async function removeBlockRule(domain) {
   const existing = await chrome.declarativeNetRequest.getDynamicRules();
-  const rule = existing.find(r => r.condition.urlFilter === "||" + domain + "^");
+  const rule = existing.find(
+    (r) => r.condition.urlFilter === "||" + domain + "^",
+  );
   if (rule) {
-    await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds: [rule.id] });
+    await chrome.declarativeNetRequest.updateDynamicRules({
+      removeRuleIds: [rule.id],
+    });
   }
 }
 
 // Add a blocking rule for a domain directly (no-op if one already exists).
 async function addBlockRule(domain) {
   const existing = await chrome.declarativeNetRequest.getDynamicRules();
-  if (existing.some(r => r.condition.urlFilter === "||" + domain + "^")) return;
+  if (existing.some((r) => r.condition.urlFilter === "||" + domain + "^"))
+    return;
   const maxId = existing.reduce((m, r) => Math.max(m, r.id), 0);
   await chrome.declarativeNetRequest.updateDynamicRules({
-    addRules: [{
-      id: maxId + 1,
-      priority: 1,
-      action: {
-        type: "redirect",
-        redirect: { extensionPath: "/blocked.html?domain=" + encodeURIComponent(domain) }
+    addRules: [
+      {
+        id: maxId + 1,
+        priority: 1,
+        action: {
+          type: "redirect",
+          redirect: {
+            extensionPath: "/blocked.html?domain=" + encodeURIComponent(domain),
+          },
+        },
+        condition: {
+          urlFilter: "||" + domain + "^",
+          resourceTypes: ["main_frame"],
+        },
       },
-      condition: { urlFilter: "||" + domain + "^", resourceTypes: ["main_frame"] }
-    }]
+    ],
   });
 }
 
@@ -206,11 +223,11 @@ async function blockCurrentSite(domain) {
 const SNOOZE_MINUTES = 5;
 const RING_CIRCUMFERENCE = 2 * Math.PI * 54; // matches the SVG circle r=54
 
-const actionWrap  = document.getElementById("action-circle-wrap");
+const actionWrap = document.getElementById("action-circle-wrap");
 const actionCircle = document.getElementById("action-circle");
 const ringProgress = document.querySelector(".ring-progress");
-const circleMain  = document.getElementById("circle-main");
-const circleSub   = document.getElementById("circle-sub");
+const circleMain = document.getElementById("circle-main");
+const circleSub = document.getElementById("circle-sub");
 
 let countdownTimer = null;
 
@@ -247,21 +264,30 @@ async function getCurrentTabDomain() {
 }
 
 function domainMatchesBlocked(tabDomain, blockedDomains) {
-  return blockedDomains.find((d) => tabDomain === d || tabDomain.endsWith("." + d)) || null;
+  return (
+    blockedDomains.find(
+      (d) => tabDomain === d || tabDomain.endsWith("." + d),
+    ) || null
+  );
 }
 
 async function updateStatusBar() {
-  if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
+  if (countdownTimer) {
+    clearInterval(countdownTimer);
+    countdownTimer = null;
+  }
   ringProgress.classList.add("hidden");
 
   const [tabDomain, domains, snoozed] = await Promise.all([
     getCurrentTabDomain(),
     getDomains(),
-    getSnoozed()
+    getSnoozed(),
   ]);
 
   const blockable = tabDomain && tabDomain.includes(".");
-  const matchedDomain = blockable ? domainMatchesBlocked(tabDomain, domains) : null;
+  const matchedDomain = blockable
+    ? domainMatchesBlocked(tabDomain, domains)
+    : null;
 
   if (!blockable) {
     // Not a real page (chrome://, new tab, etc.) — nothing to act on.
@@ -271,7 +297,9 @@ async function updateStatusBar() {
 
   if (!matchedDomain) {
     // Not blocked — circle blocks the current site.
-    showCircle("is-block", "Block", "this site", () => blockCurrentSite(tabDomain));
+    showCircle("is-block", "Block", "this site", () =>
+      blockCurrentSite(tabDomain),
+    );
     return;
   }
 
@@ -283,9 +311,10 @@ async function updateStatusBar() {
     ringProgress.classList.remove("hidden");
 
     const expiry = expiryOf(snoozeEntry);
-    const start = typeof snoozeEntry === "object" && snoozeEntry.start
-      ? snoozeEntry.start
-      : expiry - SNOOZE_MINUTES * 60 * 1000;
+    const start =
+      typeof snoozeEntry === "object" && snoozeEntry.start
+        ? snoozeEntry.start
+        : expiry - SNOOZE_MINUTES * 60 * 1000;
     const total = Math.max(1, expiry - start);
 
     const tick = () => {
@@ -299,25 +328,32 @@ async function updateStatusBar() {
       circleMain.textContent = formatClock(remaining);
       // Yellow ring = fraction of time remaining, so it shrinks as it counts down.
       const fraction = Math.max(0, Math.min(1, remaining / total));
-      ringProgress.style.strokeDashoffset = String(RING_CIRCUMFERENCE * (1 - fraction));
+      ringProgress.style.strokeDashoffset = String(
+        RING_CIRCUMFERENCE * (1 - fraction),
+      );
     };
     tick();
     countdownTimer = setInterval(tick, 250);
   } else {
     // Blocked — circle unblocks for SNOOZE_MINUTES.
-    showCircle("is-unblock", "Unblock", `${SNOOZE_MINUTES} min`, () => snooze(matchedDomain, SNOOZE_MINUTES));
+    showCircle("is-unblock", "Unblock", `${SNOOZE_MINUTES} min`, () =>
+      snooze(matchedDomain, SNOOZE_MINUTES),
+    );
   }
 }
 
 // --- YouTube settings ---
 async function getYoutube() {
-  const { youtube = DEFAULT_YOUTUBE } = await chrome.storage.sync.get("youtube");
+  const { youtube = DEFAULT_YOUTUBE } =
+    await chrome.storage.sync.get("youtube");
   return { ...DEFAULT_YOUTUBE, ...youtube };
 }
 
 function applyChannelsEnabled() {
-  const masterOn   = document.querySelector('[data-yt="enabled"]').checked;
-  const allowlistOn = document.querySelector('[data-yt="allowedChannelsOnly"]').checked;
+  const masterOn = document.querySelector('[data-yt="enabled"]').checked;
+  const allowlistOn = document.querySelector(
+    '[data-yt="allowedChannelsOnly"]',
+  ).checked;
   const on = masterOn && allowlistOn;
   const channelsSection = document.getElementById("channels-section");
   channelsSection?.classList.toggle("is-disabled", !on);
@@ -326,7 +362,7 @@ function applyChannelsEnabled() {
 }
 
 function applyYoutubeEnabled(enabled) {
-  document.querySelectorAll('[data-yt]').forEach((el) => {
+  document.querySelectorAll("[data-yt]").forEach((el) => {
     if (el.dataset.yt === "enabled") return;
     el.disabled = !enabled;
     el.closest(".toggle")?.classList.toggle("is-disabled", !enabled);
@@ -350,17 +386,22 @@ function bindYoutubeToggles(settings) {
 }
 
 // --- Allowed channels ---
-const channelListEl  = document.getElementById("channel-list");
+const channelListEl = document.getElementById("channel-list");
 const channelEmptyEl = document.getElementById("channel-empty");
-const channelFormEl  = document.getElementById("channel-form");
+const channelFormEl = document.getElementById("channel-form");
 const channelInputEl = document.getElementById("channel-input");
 
 function normalizeChannel(input) {
-  return String(input || "").trim().replace(/^@/, "").replace(/\s+/g, "").toLowerCase();
+  return String(input || "")
+    .trim()
+    .replace(/^@/, "")
+    .replace(/\s+/g, "")
+    .toLowerCase();
 }
 
 async function getChannels() {
-  const { allowedChannels = [] } = await chrome.storage.sync.get("allowedChannels");
+  const { allowedChannels = [] } =
+    await chrome.storage.sync.get("allowedChannels");
   return allowedChannels;
 }
 
@@ -390,7 +431,10 @@ function renderChannels(channels) {
 channelFormEl.addEventListener("submit", async (e) => {
   e.preventDefault();
   const channel = normalizeChannel(channelInputEl.value);
-  if (!channel) { channelInputEl.value = ""; return; }
+  if (!channel) {
+    channelInputEl.value = "";
+    return;
+  }
   const channels = await getChannels();
   if (!channels.includes(channel)) {
     await setChannels([...channels, channel]);
@@ -401,13 +445,15 @@ channelFormEl.addEventListener("submit", async (e) => {
 
 // --- Tab switching ---
 function bindTabs() {
-  const tabs   = document.querySelectorAll(".tab");
+  const tabs = document.querySelectorAll(".tab");
   const panels = document.querySelectorAll(".panel");
   tabs.forEach((tab) => {
     tab.addEventListener("click", () => {
       const target = tab.dataset.tab;
-      tabs.forEach((t)   => t.classList.toggle("is-active", t === tab));
-      panels.forEach((p) => p.classList.toggle("is-active", p.dataset.panel === target));
+      tabs.forEach((t) => t.classList.toggle("is-active", t === tab));
+      panels.forEach((p) =>
+        p.classList.toggle("is-active", p.dataset.panel === target),
+      );
     });
   });
 }
@@ -419,7 +465,7 @@ function bindTabs() {
     getDomains(),
     getSnoozed(),
     getYoutube(),
-    getChannels()
+    getChannels(),
   ]);
   renderDomains(domains, snoozed);
   bindYoutubeToggles(ytSettings);
