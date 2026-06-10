@@ -134,7 +134,7 @@ async function updateStatusCircle() {
 
   const snoozeEntry = snoozed[matched];
   if (snoozeEntry) {
-    showCircle("is-countdown", "", "Re-block", () =>
+    showCircle("is-countdown", "", "left", () =>
       run(() => actions.unsnooze(matched)),
     );
     startCountdown(snoozeEntry);
