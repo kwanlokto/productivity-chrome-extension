@@ -5,31 +5,10 @@
 // tab. Each rule redirects main-frame loads of a domain to blocked.html, capturing
 // the FULL original URL via a regex rule (\0) so "unblock" can return there.
 //
-// These helpers must stay in sync with the copies in background.js.
+// The regex/substitution helpers come from shared/core.js, shared with the
+// background worker, so the two can never drift apart.
 
-/** Escape regex metacharacters in a domain. */
-function escapeRegex(s) {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-/**
- * Regex matching http(s) URLs for a domain and its subdomains, capturing the
- * full URL. This is the rule's identity — we match rules by it.
- * @param {string} domain
- * @returns {string}
- */
-export function blockRegexFor(domain) {
-  return "^https?://([^/]+\\.)?" + escapeRegex(domain) + "([:/?#].*)?$";
-}
-
-/**
- * Redirect target: blocked.html with the domain and the full original URL (\0).
- * @param {string} domain
- * @returns {string}
- */
-function blockSubstitutionFor(domain) {
-  return chrome.runtime.getURL("blocked.html") + "?domain=" + domain + "&url=\\0";
-}
+import { blockRegexFor, blockSubstitutionFor } from "../shared/core.js";
 
 /**
  * Remove the blocking rule for a domain, if one exists.

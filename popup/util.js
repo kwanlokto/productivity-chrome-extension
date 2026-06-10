@@ -1,20 +1,8 @@
 // Pure, side-effect-free helpers.
 
-/**
- * Reduce arbitrary user input to a bare registrable domain.
- * e.g. "https://www.Facebook.com/feed?x=1" -> "facebook.com"
- * @param {string} input
- * @returns {string} the cleaned domain, or "" if input was empty
- */
-export function normalizeDomain(input) {
-  if (!input) return "";
-  let d = String(input).trim().toLowerCase();
-  d = d.replace(/^https?:\/\//, ""); // strip scheme
-  d = d.replace(/^www\./, ""); // strip leading www.
-  d = d.split("/")[0].split("?")[0].split("#")[0]; // drop path/query/hash
-  d = d.replace(/[^a-z0-9.\-]/g, ""); // keep only valid host chars
-  return d;
-}
+// normalizeDomain is shared with the background worker — re-exported from the
+// single source of truth so popup code can keep importing it from here.
+export { normalizeDomain } from "../shared/core.js";
 
 /**
  * Normalize a YouTube channel handle for storage/matching.

@@ -1,43 +1,14 @@
-// Focus Guard — background service worker
+// Focus Guard — background service worker (ES module; see manifest "type").
 // Keeps declarativeNetRequest dynamic rules in sync with the user's blocked-domain list.
 // Also handles snooze: temporarily removes a domain's rule for X minutes, then restores it.
 
-const DEFAULT_BLOCKED = ["facebook.com", "instagram.com", "tiktok.com"];
-
-const DEFAULT_YOUTUBE = {
-  enabled: false,
-  showShorts: false,
-  showHomeFeed: false,
-  showRecommendations: false,
-  showComments: false,
-  allowedChannelsOnly: false
-};
-
-const DEFAULT_CHANNELS = [
-  "khanacademy",
-  "veritasium",
-  "3blue1brown",
-  "mitocw",
-  "crashcourse",
-  "TED",
-  "TEDEd",
-  "kurzgesagt"
-];
-
-/**
- * Reduce user input to a bare registrable domain (mirror of the popup helper).
- * @param {string} input
- * @returns {string}
- */
-function normalizeDomain(input) {
-  if (!input) return "";
-  let d = String(input).trim().toLowerCase();
-  d = d.replace(/^https?:\/\//, "");
-  d = d.replace(/^www\./, "");
-  d = d.split("/")[0].split("?")[0].split("#")[0];
-  d = d.replace(/[^a-z0-9.\-]/g, "");
-  return d;
-}
+import {
+  DEFAULT_BLOCKED,
+  DEFAULT_YOUTUBE,
+  DEFAULT_CHANNELS,
+  blockRegexFor,
+  blockSubstitutionFor,
+} from "./shared/core.js";
 
 // --- Snooze helpers ---
 // Snoozed domains live in local storage as { domain -> { start, expiry } }.
@@ -77,32 +48,8 @@ async function setSnoozed(snoozed) {
 // --- Rule building ---
 // Rules use regexFilter (not urlFilter) so we can capture the WHOLE original URL
 // (\0) and pass it to the blocked page. That lets "unblock" return you to the
-// exact page rather than just the domain root. Keep these two helpers in sync with
-// the copies in popup/rules.js.
-
-/** Escape regex metacharacters in a domain. */
-function escapeRegex(s) {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-/**
- * Regex matching http(s) URLs for a domain and its subdomains, capturing the
- * full URL. Anchored so "facebook.com.evil.com" does NOT match.
- * @param {string} domain
- */
-function blockRegexFor(domain) {
-  return "^https?://([^/]+\\.)?" + escapeRegex(domain) + "([:/?#].*)?$";
-}
-
-/**
- * Redirect target: blocked.html with the domain and the full original URL.
- * \0 is replaced by the whole matched URL. `url` is last so the blocked page can
- * read everything after "url=" as the original URL.
- * @param {string} domain
- */
-function blockSubstitutionFor(domain) {
-  return chrome.runtime.getURL("blocked.html") + "?domain=" + domain + "&url=\\0";
-}
+// exact page rather than just the domain root. The regex/substitution helpers
+// live in shared/core.js, shared with popup/rules.js.
 
 /**
  * Build one redirect-to-blocked-page rule per blocked, non-snoozed domain.

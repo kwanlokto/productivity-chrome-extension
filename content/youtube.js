@@ -3,17 +3,9 @@
 // 2. "Allowed channels only" mode: keeps a channel allowlist, hides non-allowlisted
 //    videos in feeds/search/sidebar, and blocks non-allowlisted watch pages.
 
-const DEFAULT_YOUTUBE = {
-  enabled: false,
-  showShorts: false,
-  showHomeFeed: false,
-  showRecommendations: false, // sidebar + end-screen recommendations
-  showComments: false,
-  allowedChannelsOnly: false
-};
-
 // Each "show" setting maps to the <html> classes that HIDE that feature when the
-// toggle is OFF (see youtube.css).
+// toggle is OFF (see youtube.css). Defaults live in shared/core.js; this script
+// reads the stored settings directly (a missing flag is falsy = off).
 const CLASS_MAP = {
   showShorts: ["fg-hide-shorts"],
   showHomeFeed: ["fg-hide-home"],
@@ -22,7 +14,7 @@ const CLASS_MAP = {
 };
 
 // Live state, refreshed from storage.
-let settings = { ...DEFAULT_YOUTUBE };
+let settings = {};
 let allowedChannels = [];
 // Per-session "watch anyway" bypass — video ids the user chose to watch.
 const bypassed = new Set();
@@ -279,7 +271,7 @@ function refresh() {
 /** Load settings from storage and kick off the first pass. */
 function loadAndStart() {
   chrome.storage.sync.get(["youtube", "allowedChannels"]).then((data) => {
-    settings = { ...DEFAULT_YOUTUBE, ...(data.youtube || {}) };
+    settings = data.youtube || {};
     allowedChannels = data.allowedChannels || [];
     refresh();
   });
@@ -299,7 +291,7 @@ window.addEventListener("yt-navigate-finish", refresh);
 // Live-update when settings change in the popup.
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== "sync") return;
-  if (changes.youtube) settings = { ...DEFAULT_YOUTUBE, ...(changes.youtube.newValue || {}) };
+  if (changes.youtube) settings = changes.youtube.newValue || {};
   if (changes.allowedChannels) allowedChannels = changes.allowedChannels.newValue || [];
   if (changes.youtube || changes.allowedChannels) refresh();
 });
