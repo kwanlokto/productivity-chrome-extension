@@ -38,26 +38,29 @@ function applyClasses() {
 // ---------- Channel matching ----------
 
 /**
- * Normalize a channel handle/name for comparison (lowercase, strip @).
+ * Normalize a channel handle/name into a comparison key: lowercase, no leading
+ * @, no spaces. This matches the format the popup stores channels in, so a
+ * stored "khanacademy" matches both the handle "khanacademy" and the display
+ * name "Khan Academy".
  * @param {string} s
  * @returns {string}
  */
-function normChannel(s) {
-  return String(s || "").toLowerCase().replace(/^@/, "").trim();
+function channelKey(s) {
+  return String(s || "").toLowerCase().replace(/^@/, "").replace(/\s+/g, "").trim();
 }
 
 /**
- * Is the channel (by handle or display name) on the allow list?
+ * Is the channel (by handle or display name) on the allow list? Matches exactly
+ * — no substring matching, which previously allowed unrelated channels through.
  * @param {{ handle: string, name: string }} info
  * @returns {boolean}
  */
 function channelAllowed(info) {
-  const handle = normChannel(info.handle);
-  const name = normChannel(info.name);
+  const handle = channelKey(info.handle);
+  const name = channelKey(info.name);
   return allowedChannels.some((raw) => {
-    const e = normChannel(raw);
-    if (!e) return false;
-    return handle === e || (handle && handle.includes(e)) || name === e || (name && name.includes(e));
+    const e = channelKey(raw);
+    return e !== "" && (handle === e || name === e);
   });
 }
 
@@ -184,18 +187,42 @@ function escapeHtml(s) {
   );
 }
 
+let lastWatchLog = "";
+
 /** Show/clear the block overlay for the current watch page per the allow list. */
 function enforceWatchPage() {
-  if (!(settings.enabled && settings.allowedChannelsOnly) || location.pathname !== "/watch") {
+  if (location.pathname !== "/watch") {
     removeOverlay();
     return;
   }
+
+  const active = settings.enabled && settings.allowedChannelsOnly;
   const videoId = new URLSearchParams(location.search).get("v");
+  const info = getWatchChannelInfo();
+
+  // Log once per (video, state) so we can see why something does/doesn't block.
+  const logKey = `${videoId}|${active}|${info.handle}|${info.hasInfo}`;
+  if (logKey !== lastWatchLog) {
+    lastWatchLog = logKey;
+    console.debug("[Focus Guard] watch page:", {
+      enabled: settings.enabled,
+      allowedChannelsOnly: settings.allowedChannelsOnly,
+      channelHandle: info.handle,
+      channelName: info.name,
+      hasInfo: info.hasInfo,
+      allowed: info.hasInfo ? channelAllowed(info) : "(channel not detected yet)",
+      allowList: allowedChannels,
+    });
+  }
+
+  if (!active) {
+    removeOverlay();
+    return;
+  }
   if (videoId && bypassed.has(videoId)) {
     removeOverlay();
     return;
   }
-  const info = getWatchChannelInfo();
   if (!info.hasInfo) return; // metadata not loaded yet; observer will retry
   if (channelAllowed(info)) {
     removeOverlay();
