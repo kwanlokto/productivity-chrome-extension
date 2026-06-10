@@ -126,7 +126,7 @@ function bindImport() {
 function disarmReset() {
   resetArmed = false;
   clearTimeout(resetTimer);
-  resetBtn.textContent = "Reset everything to defaults";
+  resetBtn.textContent = "Reset";
   resetBtn.classList.remove("is-armed");
 }
 
@@ -134,7 +134,7 @@ function bindReset() {
   resetBtn.addEventListener("click", async () => {
     if (!resetArmed) {
       resetArmed = true;
-      resetBtn.textContent = "Click again to confirm reset";
+      resetBtn.textContent = "Click again to confirm";
       resetBtn.classList.add("is-armed");
       resetTimer = setTimeout(disarmReset, 4000);
       return;
