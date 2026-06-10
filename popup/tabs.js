@@ -47,6 +47,21 @@ export function domainMatchesBlocked(tabDomain, blockedDomains) {
 }
 
 /**
+ * If the active tab is our blocked page, return the full original URL captured in
+ * its `url=` parameter (everything after "url=", since the original URL may itself
+ * contain "?"/"&"). Otherwise null.
+ * @returns {Promise<string | null>}
+ */
+export async function getBlockedOriginalUrl() {
+  const tab = await getActiveTab();
+  if (!tab?.url || !tab.url.includes("blocked.html")) return null;
+  const i = tab.url.indexOf("url=");
+  if (i < 0) return null;
+  const raw = tab.url.slice(i + "url=".length);
+  return raw || null;
+}
+
+/**
  * Navigate the active tab to a URL.
  * @param {string} url
  */

@@ -74,6 +74,34 @@ async function setSnoozed(snoozed) {
 }
 
 // --- Rule building ---
+// Rules use regexFilter (not urlFilter) so we can capture the WHOLE original URL
+// (\0) and pass it to the blocked page. That lets "unblock" return you to the
+// exact page rather than just the domain root. Keep these two helpers in sync with
+// the copies in popup/rules.js.
+
+/** Escape regex metacharacters in a domain. */
+function escapeRegex(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Regex matching http(s) URLs for a domain and its subdomains, capturing the
+ * full URL. Anchored so "facebook.com.evil.com" does NOT match.
+ * @param {string} domain
+ */
+function blockRegexFor(domain) {
+  return "^https?://([^/]+\\.)?" + escapeRegex(domain) + "([:/?#].*)?$";
+}
+
+/**
+ * Redirect target: blocked.html with the domain and the full original URL.
+ * \0 is replaced by the whole matched URL. `url` is last so the blocked page can
+ * read everything after "url=" as the original URL.
+ * @param {string} domain
+ */
+function blockSubstitutionFor(domain) {
+  return chrome.runtime.getURL("blocked.html") + "?domain=" + domain + "&url=\\0";
+}
 
 /**
  * Build one redirect-to-blocked-page rule per blocked, non-snoozed domain.
@@ -89,12 +117,10 @@ function buildRules(domains, snoozed) {
       priority: 1,
       action: {
         type: "redirect",
-        redirect: {
-          extensionPath: "/blocked.html?domain=" + encodeURIComponent(domain)
-        }
+        redirect: { regexSubstitution: blockSubstitutionFor(domain) }
       },
       condition: {
-        urlFilter: "||" + domain + "^",
+        regexFilter: blockRegexFor(domain),
         resourceTypes: ["main_frame"]
       }
     }));

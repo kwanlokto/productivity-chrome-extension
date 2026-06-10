@@ -4,7 +4,12 @@
 
 import { getDomains, setDomains, addSnooze, removeSnooze } from "./storage.js";
 import { addBlockRule, removeBlockRule } from "./rules.js";
-import { getActiveTab, navigateActiveTab, reloadActiveTab } from "./tabs.js";
+import {
+  getActiveTab,
+  getBlockedOriginalUrl,
+  navigateActiveTab,
+  reloadActiveTab,
+} from "./tabs.js";
 
 /**
  * Add a domain to the blocked list. The background worker picks up the storage
@@ -34,7 +39,10 @@ export async function removeDomain(domain) {
       const onBlockedPage =
         url.pathname.endsWith("blocked.html") &&
         url.searchParams.get("domain") === domain;
-      if (onBlockedPage) await navigateActiveTab("https://" + domain);
+      if (onBlockedPage) {
+        const original = await getBlockedOriginalUrl();
+        await navigateActiveTab(original || "https://" + domain);
+      }
     } catch {
       /* unparseable tab URL — nothing to redirect */
     }
@@ -65,7 +73,8 @@ export async function snooze(domain, minutes) {
 
   // Drop the rule, THEN navigate — so the load isn't redirected back.
   await removeBlockRule(domain);
-  await navigateActiveTab("https://" + domain);
+  const original = await getBlockedOriginalUrl();
+  await navigateActiveTab(original || "https://" + domain);
 
   // Schedule the re-block. Guard it so an alarm hiccup can't undo the redirect.
   try {
