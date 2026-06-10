@@ -40,7 +40,9 @@
     .quote { font-style: italic; color: #cbd5e1; margin-bottom: 28px; }
     .quote .author { font-style: normal; font-size: 13px; color: #94a3b8; display: inline-block; margin-top: 8px; }
     a.back {
-      display: inline-block;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
       background: #6366f1;
       color: #fff;
       text-decoration: none;
@@ -50,6 +52,7 @@
       transition: background 0.15s;
     }
     a.back:hover { background: #4f46e5; }
+    a.back .back-icon { width: 18px; height: 18px; flex-shrink: 0; }
   </style>
 </head>
 <body>
@@ -59,7 +62,13 @@
     <div class="domain" id="domain">this site</div>
     <p>Focus Guard is blocking this site to protect your attention. Get back to what matters.</p>
     <p class="quote" id="quote"></p>
-    <a class="back" href="#" id="back">← Go back</a>
+    <a class="back" href="#" id="back">
+      <svg class="back-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M19 12H5" />
+        <path d="M11 18l-6-6 6-6" />
+      </svg>
+      Go back
+    </a>
   </div>
   <script src="blocked.js"></script>
 </body>

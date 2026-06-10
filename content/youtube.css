@@ -76,8 +76,15 @@ html.fg-hide-comments ytd-comments {
   font-weight: 600;
   cursor: pointer;
 }
-#fg-edu-overlay #fg-go-back { background: #6366f1; color: #fff; }
+#fg-edu-overlay #fg-go-back {
+  background: #6366f1;
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
 #fg-edu-overlay #fg-go-back:hover { background: #4f46e5; }
+#fg-edu-overlay .fg-back-icon { width: 16px; height: 16px; flex-shrink: 0; }
 #fg-edu-overlay #fg-watch-anyway {
   background: transparent;
   color: #94a3b8;

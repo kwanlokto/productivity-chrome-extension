@@ -200,10 +200,10 @@ section h2 {
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s;
 }
-.back-link::before {
-  content: "←";
-  font-size: 18px;
-  line-height: 1;
+.back-link .back-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
 }
 .back-link:hover {
   border-color: var(--accent);
