@@ -5,10 +5,11 @@ export const DEFAULT_BLOCKED = ["facebook.com", "instagram.com", "tiktok.com"];
 
 /** Default YouTube focus settings (mirrors the defaults in background.js). */
 export const DEFAULT_YOUTUBE = {
-  enabled: true,
-  hideShorts: true,
-  hideHomeFeed: true,
-  hideWatchDistractions: true,
+  enabled: false,
+  showShorts: false,
+  showHomeFeed: false,
+  showRecommendations: false,
+  showComments: false,
   allowedChannelsOnly: false,
 };
 

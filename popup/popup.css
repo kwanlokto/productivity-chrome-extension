@@ -306,15 +306,15 @@ section h2 {
 .toggle {
   display: flex;
   align-items: center;
+  justify-content: space-between; /* label left, switch right */
   gap: 10px;
   padding: 7px 0;
   font-size: 14px;
   cursor: pointer;
 }
-.toggle input { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
 
-/* The "Enable" toggles in section headings render as a switch: gray off, blue on. */
-.section-head .toggle input[type="checkbox"] {
+/* Every toggle renders as a switch: gray when off, blue when on. */
+.toggle input[type="checkbox"] {
   appearance: none;
   -webkit-appearance: none;
   position: relative;
@@ -326,7 +326,7 @@ section h2 {
   cursor: pointer;
   transition: background 0.15s;
 }
-.section-head .toggle input[type="checkbox"]::before {
+.toggle input[type="checkbox"]::before {
   content: "";
   position: absolute;
   top: 2px;
@@ -337,8 +337,8 @@ section h2 {
   background: #fff;
   transition: transform 0.15s;
 }
-.section-head .toggle input[type="checkbox"]:checked { background: var(--accent); }
-.section-head .toggle input[type="checkbox"]:checked::before { transform: translateX(14px); }
+.toggle input[type="checkbox"]:checked { background: var(--accent); }
+.toggle input[type="checkbox"]:checked::before { transform: translateX(14px); }
 
 /* Sub-options inactive while "Enable YouTube tweaks" is off. */
 .toggle.is-disabled { opacity: 0.4; pointer-events: none; }

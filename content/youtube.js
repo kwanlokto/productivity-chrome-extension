@@ -4,18 +4,21 @@
 //    videos in feeds/search/sidebar, and blocks non-allowlisted watch pages.
 
 const DEFAULT_YOUTUBE = {
-  enabled: true,
-  hideShorts: true,
-  hideHomeFeed: true,
-  hideWatchDistractions: true, // sidebar/end-screen recommendations + comments
+  enabled: false,
+  showShorts: false,
+  showHomeFeed: false,
+  showRecommendations: false, // sidebar + end-screen recommendations
+  showComments: false,
   allowedChannelsOnly: false
 };
 
-// Each setting toggles one or more <html> classes (see youtube.css).
+// Each "show" setting maps to the <html> classes that HIDE that feature when the
+// toggle is OFF (see youtube.css).
 const CLASS_MAP = {
-  hideShorts: ["fg-hide-shorts"],
-  hideHomeFeed: ["fg-hide-home"],
-  hideWatchDistractions: ["fg-hide-related", "fg-hide-comments"]
+  showShorts: ["fg-hide-shorts"],
+  showHomeFeed: ["fg-hide-home"],
+  showRecommendations: ["fg-hide-related"],
+  showComments: ["fg-hide-comments"]
 };
 
 // Live state, refreshed from storage.
@@ -26,12 +29,13 @@ const bypassed = new Set();
 
 // ---------- CSS-class toggles ----------
 
-/** Toggle each feature's <html> classes based on the current settings. */
+/** Apply each feature's hide-classes when tweaks are on and the feature is OFF. */
 function applyClasses() {
   const root = document.documentElement;
   for (const [key, classNames] of Object.entries(CLASS_MAP)) {
-    const on = Boolean(settings.enabled && settings[key]);
-    for (const className of classNames) root.classList.toggle(className, on);
+    // Toggles are "show" switches: hide the feature when it's switched off.
+    const hide = Boolean(settings.enabled && !settings[key]);
+    for (const className of classNames) root.classList.toggle(className, hide);
   }
 }
 
