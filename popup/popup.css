@@ -211,7 +211,6 @@ section h2 {
   font-size: 14px;
   font-weight: 600;
   padding: 10px 16px;
-  margin-bottom: 16px;
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s;
 }
