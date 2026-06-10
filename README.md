@@ -16,6 +16,8 @@ distracting sites and taming YouTube's doom-scroll machinery.
   - Hide sidebar recommendations, end-screen cards, and disable autoplay-next
   - Hide comments
   - Grayscale mode to make the site less dopamine-inducing
+- **Settings tab** — Change how long "Unlock" lifts a block for, save your settings
+  to a JSON file, load them back, or reset everything to defaults.
 
 ## How it works
 
@@ -41,11 +43,13 @@ as an ES module, which is split by concern:
 | [actions.js](popup/actions.js) | High-level actions (add/remove/block/snooze/unsnooze) combining the above. |
 | [sites-view.js](popup/sites-view.js) | "Blocked sites" tab: list + the circular status/action control. |
 | [youtube-view.js](popup/youtube-view.js) | "YouTube" tab: focus toggles + allowed-channels list. |
+| [settings-view.js](popup/settings-view.js) | "Settings" tab: unlock duration, backup/restore to a file, reset to defaults. |
 | [popup.js](popup/popup.js) | Entry point: tab navigation + view init. |
 
 Settings live in `chrome.storage.sync` under `blockedDomains` (array of bare
-domains), `youtube` (the feature toggles), and `allowedChannels` (allow-listed
-handles). Active snoozes live in `chrome.storage.local` under `snoozed`
+domains), `youtube` (the feature toggles), `allowedChannels` (allow-listed
+handles), and `unlockMinutes` (how long "Unlock" lifts a block for). Active
+snoozes live in `chrome.storage.local` under `snoozed`
 (`{ domain: { start, expiry } }`).
 
 ## Install (developer / unpacked)

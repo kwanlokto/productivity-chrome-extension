@@ -2,9 +2,9 @@
 
 import * as actions from "./actions.js";
 
-import { RING_CIRCUMFERENCE, SNOOZE_MINUTES } from "./config.js";
+import { DEFAULT_UNLOCK_MINUTES, RING_CIRCUMFERENCE } from "./config.js";
 import { domainMatchesBlocked, getCurrentTabDomain } from "./tabs.js";
-import { expiryOf, getActiveSnooze, getDomains } from "./storage.js";
+import { expiryOf, getActiveSnooze, getDomains, getUnlockMinutes } from "./storage.js";
 import { formatClock, normalizeDomain, reanimate } from "./util.js";
 
 // DOM refs (populated in initSitesView).
@@ -14,6 +14,9 @@ let mainView, manageView, openManageBtn, backBtn;
 
 // Handle for the live countdown interval, so we can cancel it on re-render.
 let countdownTimer = null;
+
+// The user's configured "Unlock" duration, refreshed on each status update.
+let unlockMinutes = DEFAULT_UNLOCK_MINUTES;
 
 /* ------------------------------ Domain list ------------------------------- */
 
@@ -78,7 +81,7 @@ function startCountdown(snoozeEntry) {
   const start =
     typeof snoozeEntry === "object" && snoozeEntry.start
       ? snoozeEntry.start
-      : expiry - SNOOZE_MINUTES * 60 * 1000;
+      : expiry - unlockMinutes * 60 * 1000;
   const total = Math.max(1, expiry - start);
 
   const tick = () => {
@@ -112,11 +115,13 @@ async function updateStatusCircle() {
   }
   ringProgress.classList.add("hidden");
 
-  const [tabDomain, domains, snoozed] = await Promise.all([
+  const [tabDomain, domains, snoozed, minutes] = await Promise.all([
     getCurrentTabDomain(),
     getDomains(),
     getActiveSnooze(),
+    getUnlockMinutes(),
   ]);
+  unlockMinutes = minutes;
 
   const blockable = tabDomain && tabDomain.includes(".");
   const matched = blockable ? domainMatchesBlocked(tabDomain, domains) : null;
@@ -141,8 +146,8 @@ async function updateStatusCircle() {
     );
     startCountdown(snoozeEntry);
   } else {
-    showCircle("is-unblock", "Unlock", `${SNOOZE_MINUTES} min`, () =>
-      run(() => actions.snooze(matched, SNOOZE_MINUTES)),
+    showCircle("is-unblock", "Unlock", `${unlockMinutes} min`, () =>
+      run(() => actions.snooze(matched, unlockMinutes)),
     );
   }
 }

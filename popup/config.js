@@ -13,8 +13,25 @@ export const DEFAULT_YOUTUBE = {
   allowedChannelsOnly: false,
 };
 
-/** How long the "Unblock" action lifts a block for, in minutes. */
-export const SNOOZE_MINUTES = 5;
+/** Channels allow-listed out of the box (mirrors the defaults in background.js). */
+export const DEFAULT_CHANNELS = [
+  "khanacademy",
+  "veritasium",
+  "3blue1brown",
+  "mitocw",
+  "crashcourse",
+  "TED",
+  "TEDEd",
+  "kurzgesagt",
+];
+
+/** How long the "Unlock" action lifts a block for, in minutes, until the user
+ *  changes it on the Settings tab. */
+export const DEFAULT_UNLOCK_MINUTES = 5;
+
+/** Allowed range for the configurable unlock duration (1 min … 24 h). */
+export const MIN_UNLOCK_MINUTES = 1;
+export const MAX_UNLOCK_MINUTES = 1440;
 
 /** Circumference of the countdown ring (must match the SVG circle r=54). */
 export const RING_CIRCUMFERENCE = 2 * Math.PI * 54;

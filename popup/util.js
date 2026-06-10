@@ -31,6 +31,20 @@ export function normalizeChannel(input) {
 }
 
 /**
+ * Coerce arbitrary input into a whole number of minutes within [min, max].
+ * Returns null when the input isn't a finite number, so callers can reject it.
+ * @param {unknown} value
+ * @param {number} min
+ * @param {number} max
+ * @returns {number | null}
+ */
+export function clampMinutes(value, min, max) {
+  const n = Math.round(Number(value));
+  if (!Number.isFinite(n)) return null;
+  return Math.min(max, Math.max(min, n));
+}
+
+/**
  * Format a millisecond duration as a "m:ss" clock string.
  * @param {number} ms
  * @returns {string} e.g. "4:07"

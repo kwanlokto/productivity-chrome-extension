@@ -300,8 +300,45 @@ section h2 {
 #channel-form button:hover { background: #4f46e5; }
 
 .empty { color: var(--muted); font-size: 13px; font-style: italic; }
-.hint { color: var(--muted); font-size: 12px; line-height: 1.5; margin-bottom: 10px; }
+.hint { color: var(--muted); font-size: 12px; line-height: 1.5; margin-top: 8px; }
 .hidden { display: none !important; }
+
+/* --- Settings tab --- */
+.inline-form { display: flex; align-items: center; gap: 8px; }
+#unlock-input {
+  width: 72px;
+  background: var(--surface);
+  border: 1px solid var(--surface-2);
+  border-radius: 8px;
+  padding: 8px 10px;
+  color: var(--text);
+  font-size: 13px;
+}
+#unlock-input:focus { outline: none; border-color: var(--accent); }
+.inline-form .unit { color: var(--muted); font-size: 13px; }
+.inline-form button {
+  margin-left: auto;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+}
+.inline-form button:hover { background: #4f46e5; }
+
+/* Stacked backup/restore buttons sit closer together than a lone wide-btn. */
+#import-btn { margin-top: 8px; }
+
+.danger-btn { color: var(--danger); }
+.danger-btn:hover { border-color: var(--danger); }
+.wide-btn.is-armed { border-color: var(--danger); color: var(--danger); }
+
+.settings-status { font-size: 12px; min-height: 16px; margin-top: 14px; }
+.settings-status.is-ok { color: #4ade80; }
+.settings-status.is-error { color: var(--danger); }
 
 .toggle {
   display: flex;

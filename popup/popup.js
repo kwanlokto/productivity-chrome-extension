@@ -3,6 +3,7 @@
 
 import { initSitesView } from "./sites-view.js";
 import { initYoutubeView } from "./youtube-view.js";
+import { initSettingsView } from "./settings-view.js";
 
 /** Wire the top-level Blocked-sites / YouTube tab switcher. */
 function initNav() {
@@ -22,3 +23,4 @@ function initNav() {
 initNav();
 initSitesView();
 initYoutubeView();
+initSettingsView();

@@ -14,6 +14,7 @@
   <nav class="tabs" role="tablist">
     <button class="tab is-active" data-tab="sites" role="tab">Main</button>
     <button class="tab" data-tab="youtube" role="tab">YouTube</button>
+    <button class="tab" data-tab="settings" role="tab">Settings</button>
   </nav>
 
   <div class="panel is-active" data-panel="sites">
@@ -119,6 +120,41 @@
         Back
       </button>
     </div>
+
+  </div>
+
+  <div class="panel" data-panel="settings">
+
+    <section>
+      <div class="section-head">
+        <h2>Unlock duration</h2>
+      </div>
+      <form id="unlock-form" class="inline-form">
+        <input id="unlock-input" type="number" min="1" max="1440" step="1" inputmode="numeric" aria-label="Unlock duration in minutes" />
+        <span class="unit">minutes</span>
+        <button type="submit">Save</button>
+      </form>
+      <p class="hint">How long “Unlock” lifts a block before the site re-blocks itself.</p>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <h2>Backup &amp; restore</h2>
+      </div>
+      <button id="export-btn" type="button" class="wide-btn">Save settings to file</button>
+      <button id="import-btn" type="button" class="wide-btn">Load settings from file</button>
+      <input id="import-file" type="file" accept="application/json,.json" hidden />
+    </section>
+
+    <section>
+      <div class="section-head">
+        <h2>Reset</h2>
+      </div>
+      <button id="reset-btn" type="button" class="wide-btn danger-btn">Reset everything to defaults</button>
+      <p class="hint">Restores the default blocked sites, YouTube settings, allowed channels, and unlock duration.</p>
+    </section>
+
+    <p id="settings-status" class="settings-status" role="status" aria-live="polite"></p>
 
   </div>
 
