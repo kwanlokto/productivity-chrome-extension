@@ -55,13 +55,24 @@ function applyYoutubeEnabled(enabled) {
 /* ------------------------------- Toggles ---------------------------------- */
 
 /**
- * Bind every [data-yt] checkbox to its stored setting and persist on change.
+ * Reflect stored settings into the toggle checkboxes and apply enabled/disabled
+ * styling. Pure paint — binds nothing, so it's safe to call on every refresh.
  * @param {Record<string, boolean>} settings
  */
-function bindToggles(settings) {
+function applyToggleStates(settings) {
+  document.querySelectorAll("[data-yt]").forEach((el) => {
+    el.checked = Boolean(settings[el.dataset.yt]);
+  });
+  applyYoutubeEnabled(Boolean(settings.enabled));
+}
+
+/**
+ * Bind every [data-yt] checkbox to persist on change. Call once — state itself is
+ * painted by applyToggleStates.
+ */
+function bindToggles() {
   document.querySelectorAll("[data-yt]").forEach((el) => {
     const key = el.dataset.yt;
-    el.checked = Boolean(settings[key]);
     el.addEventListener("change", async () => {
       const current = await getYoutubeSettings();
       current[key] = el.checked;
@@ -70,7 +81,6 @@ function bindToggles(settings) {
       if (key === "allowedChannelsOnly") applyChannelEditorEnabled();
     });
   });
-  applyYoutubeEnabled(Boolean(settings.enabled));
 }
 
 /* --------------------------- Allowed channels ----------------------------- */
@@ -143,6 +153,28 @@ function bindChannelForm() {
   });
 }
 
+/**
+ * Re-read the YouTube settings + channels and repaint. Used on init and whenever
+ * another surface (the Settings tab's reset/import) rewrites them.
+ */
+async function refreshFromStorage() {
+  const [settings, channels] = await Promise.all([
+    getYoutubeSettings(),
+    getChannels(),
+  ]);
+  applyToggleStates(settings);
+  renderChannels(channels);
+}
+
+/** Repaint when the YouTube settings or channel list change from elsewhere. */
+function bindStorageSync() {
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === "sync" && (changes.youtube || changes.allowedChannels)) {
+      refreshFromStorage();
+    }
+  });
+}
+
 /** Initialize the YouTube tab. */
 export async function initYoutubeView() {
   channelListEl = document.getElementById("channel-list");
@@ -156,12 +188,9 @@ export async function initYoutubeView() {
   openChannelsBtn = document.getElementById("open-channels");
   backBtn = document.getElementById("back-to-youtube");
 
-  const [settings, channels] = await Promise.all([
-    getYoutubeSettings(),
-    getChannels(),
-  ]);
   bindChannelsNav();
-  bindToggles(settings); // applies enable/disable states — needs DOM refs set
-  renderChannels(channels);
+  bindToggles(); // bind once; state is painted by refreshFromStorage
   bindChannelForm();
+  bindStorageSync();
+  await refreshFromStorage(); // needs DOM refs set
 }
