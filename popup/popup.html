@@ -126,20 +126,28 @@
   <div class="panel" data-panel="settings">
 
     <section>
-      <div class="inline-form">
-        <span class="field-label">Duration</span>
+      <div class="section-head">
+        <h2>Unlock duration</h2>
+      </div>
+      <div class="setting-row">
+        <span>Minutes per unlock</span>
         <input id="unlock-input" type="number" min="1" max="1440" step="1" inputmode="numeric" aria-label="Unlock duration in minutes" />
-        <span class="unit">minutes</span>
       </div>
     </section>
 
     <section>
+      <div class="section-head">
+        <h2>Backup &amp; restore</h2>
+      </div>
       <button id="export-btn" type="button" class="wide-btn">Save settings</button>
       <button id="import-btn" type="button" class="wide-btn">Load settings</button>
       <input id="import-file" type="file" accept="application/json,.json" hidden />
     </section>
 
     <section>
+      <div class="section-head">
+        <h2>Reset to defaults</h2>
+      </div>
       <button id="reset-btn" type="button" class="wide-btn danger-btn">Reset</button>
     </section>
 

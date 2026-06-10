@@ -304,28 +304,39 @@ section h2 {
 .hidden { display: none !important; }
 
 /* --- Settings tab --- */
-.inline-form { display: flex; align-items: center; gap: 8px; }
-.inline-form .field-label { font-size: 14px; }
+/* A labelled value row, matching the toggle rows (label left, control right). */
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 14px;
+}
 #unlock-input {
-  width: 72px;
+  width: 64px;
   background: var(--surface);
   border: 1px solid var(--surface-2);
   border-radius: 8px;
-  padding: 8px 10px;
+  padding: 8px 12px;
   color: var(--text);
-  font-size: 13px;
+  font-size: 14px;
+  text-align: left;
+  /* Render the native stepper in dark mode, so it keeps its up/down arrows but
+     drops the white background block (and the arrows match the dark field). */
+  color-scheme: dark;
 }
 #unlock-input:focus { outline: none; border-color: var(--accent); }
-.inline-form .unit { color: var(--muted); font-size: 13px; }
 
-/* Stacked backup/restore buttons sit closer together than a lone wide-btn. */
-#import-btn { margin-top: 8px; }
+/* Settings buttons sit directly under their section heading, so drop the big
+   top margin a lone wide-btn carries and only space stacked buttons apart. */
+[data-panel="settings"] .wide-btn { margin-top: 0; }
+[data-panel="settings"] .wide-btn + .wide-btn { margin-top: 8px; }
 
 .danger-btn { color: var(--danger); }
 .danger-btn:hover { border-color: var(--danger); }
 .wide-btn.is-armed { border-color: var(--danger); color: var(--danger); }
 
-.settings-status { font-size: 12px; min-height: 16px; margin-top: 14px; }
+.settings-status { font-size: 12px; min-height: 16px; margin-top: 6px; }
 .settings-status.is-ok { color: #4ade80; }
 .settings-status.is-error { color: var(--danger); }
 
