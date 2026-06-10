@@ -241,6 +241,7 @@ section h2 {
 #domain-list li.is-snoozed { opacity: 0.5; }
 
 .domain-text { flex: 1; }
+#channel-list li span { flex: 1; }
 
 #domain-list .btn-remove, #channel-list button {
   background: transparent;
