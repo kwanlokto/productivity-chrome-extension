@@ -12,7 +12,7 @@
   </header>
 
   <nav class="tabs" role="tablist">
-    <button class="tab is-active" data-tab="sites" role="tab">Blocked sites</button>
+    <button class="tab is-active" data-tab="sites" role="tab">Main</button>
     <button class="tab" data-tab="youtube" role="tab">YouTube</button>
   </nav>
 
@@ -41,7 +41,9 @@
     <!-- Manage view: add/remove blocked sites -->
     <div id="sites-manage" class="hidden">
       <section>
-        <h2>Blocked sites</h2>
+        <div class="section-head">
+          <h2>Blocked sites</h2>
+        </div>
         <form id="add-form">
           <input id="domain-input" type="text" placeholder="add a domain, e.g. reddit.com" autocomplete="off" />
           <button type="submit">Add</button>
@@ -65,7 +67,9 @@
     <!-- Main view: focus toggles + entry to the channel editor -->
     <div id="youtube-main">
       <section>
-        <h2>YouTube focus</h2>
+        <div class="section-head">
+          <h2>YouTube focus</h2>
+        </div>
         <label class="toggle">
           <input type="checkbox" data-yt="enabled" />
           <span>Enable YouTube tweaks</span>

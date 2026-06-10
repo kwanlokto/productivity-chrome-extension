@@ -71,7 +71,7 @@ section h2 {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 10px;
+  margin-bottom: 16px;
 }
 .section-head h2 { margin-bottom: 0; }
 .section-head .toggle { padding: 0; }
