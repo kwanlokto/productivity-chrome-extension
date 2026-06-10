@@ -1,10 +1,11 @@
 // "Blocked sites" tab: the current-tab action circle and the blocked-domain list.
 
-import { SNOOZE_MINUTES, RING_CIRCUMFERENCE } from "./config.js";
-import { normalizeDomain, formatClock, reanimate } from "./util.js";
-import { getDomains, getActiveSnooze, expiryOf } from "./storage.js";
-import { getCurrentTabDomain, domainMatchesBlocked } from "./tabs.js";
 import * as actions from "./actions.js";
+
+import { RING_CIRCUMFERENCE, SNOOZE_MINUTES } from "./config.js";
+import { domainMatchesBlocked, getCurrentTabDomain } from "./tabs.js";
+import { expiryOf, getActiveSnooze, getDomains } from "./storage.js";
+import { formatClock, normalizeDomain, reanimate } from "./util.js";
 
 // DOM refs (populated in initSitesView).
 let listEl, emptyEl, formEl, inputEl;
@@ -140,7 +141,7 @@ async function updateStatusCircle() {
     );
     startCountdown(snoozeEntry);
   } else {
-    showCircle("is-unblock", "Unblock", `${SNOOZE_MINUTES} min`, () =>
+    showCircle("is-unblock", "Unlock", `${SNOOZE_MINUTES} min`, () =>
       run(() => actions.snooze(matched, SNOOZE_MINUTES)),
     );
   }
