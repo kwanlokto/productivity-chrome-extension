@@ -136,22 +136,48 @@ function removeOverlay() {
 }
 
 /**
- * Pause the video and show the "channel not allowed" block overlay.
+ * Build the overlay's message line for a channel.
+ * @param {{ name: string }} info
+ * @returns {string} HTML
+ */
+function overlayMessage(info) {
+  const who = info.name ? escapeHtml(info.name) : "This channel";
+  return `${who} isn't in your allowed channels list.`;
+}
+
+/**
+ * Pause the video and show the "channel not allowed" block overlay. If an overlay
+ * is already up (e.g. we navigated to another blocked video, or the channel
+ * metadata just finished loading), its message is updated in place rather than
+ * left showing the previous video's channel.
  * @param {string|null} videoId current video id (for the "watch anyway" bypass)
  * @param {{ name: string }} info channel info, for the message
  */
 function showOverlay(videoId, info) {
-  // Pause whatever is playing.
   document.querySelector("video")?.pause();
-  if (document.getElementById("fg-edu-overlay")) return;
+
+  const existing = document.getElementById("fg-edu-overlay");
+  if (existing) {
+    existing.dataset.videoId = videoId || "";
+    const msg = existing.querySelector(".fg-msg");
+    if (msg) msg.innerHTML = overlayMessage(info);
+    // Re-point "watch anyway" at the current video.
+    existing.querySelector("#fg-watch-anyway").onclick = () => {
+      if (videoId) bypassed.add(videoId);
+      removeOverlay();
+      document.querySelector("video")?.play();
+    };
+    return;
+  }
 
   const overlay = document.createElement("div");
   overlay.id = "fg-edu-overlay";
+  overlay.dataset.videoId = videoId || "";
   overlay.innerHTML = `
     <div class="fg-box">
       <div class="fg-emoji">📚</div>
       <h1>Channel not allowed</h1>
-      <p>${info.name ? escapeHtml(info.name) : "This channel"} isn't in your allowed channels list.</p>
+      <p class="fg-msg">${overlayMessage(info)}</p>
       <div class="fg-actions">
         <button id="fg-go-back">
           <svg class="fg-back-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -169,11 +195,11 @@ function showOverlay(videoId, info) {
     if (history.length > 1) history.back();
     else location.href = "https://www.youtube.com";
   });
-  overlay.querySelector("#fg-watch-anyway").addEventListener("click", () => {
+  overlay.querySelector("#fg-watch-anyway").onclick = () => {
     if (videoId) bypassed.add(videoId);
     removeOverlay();
     document.querySelector("video")?.play();
-  });
+  };
 }
 
 /**
