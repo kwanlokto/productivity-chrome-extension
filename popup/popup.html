@@ -82,10 +82,6 @@
           <input type="checkbox" data-yt="hideWatchDistractions" />
           <span>Hide Watch Distractions</span>
         </label>
-        <label class="toggle">
-          <input type="checkbox" data-yt="allowedChannelsOnly" />
-          <span>Allowed Channels Only</span>
-        </label>
       </section>
       <button id="open-channels" class="wide-btn">Change allowed channels</button>
     </div>
@@ -100,13 +96,21 @@
         Back
       </button>
       <section id="channels-section">
-        <h2>Allowed channels</h2>
-        <form id="channel-form">
-          <input id="channel-input" type="text" placeholder="add a channel, e.g. @veritasium" autocomplete="off" />
-          <button type="submit">Add</button>
-        </form>
-        <ul id="channel-list"></ul>
-        <p id="channel-empty" class="empty hidden">No channels allowed yet — everything will be hidden.</p>
+        <div class="section-head">
+          <h2>Allowed channels</h2>
+          <label class="toggle">
+            <input type="checkbox" data-yt="allowedChannelsOnly" />
+            <span>Enable</span>
+          </label>
+        </div>
+        <div id="channels-editor">
+          <form id="channel-form">
+            <input id="channel-input" type="text" placeholder="add a channel, e.g. @veritasium" autocomplete="off" />
+            <button type="submit">Add</button>
+          </form>
+          <ul id="channel-list"></ul>
+          <p id="channel-empty" class="empty hidden">No channels allowed yet — everything will be hidden.</p>
+        </div>
       </section>
     </div>
 

@@ -8,21 +8,34 @@ import {
   setChannels,
 } from "./storage.js";
 
-let channelListEl, channelEmptyEl, channelFormEl, channelInputEl;
+let channelListEl, channelEmptyEl, channelFormEl, channelInputEl, channelsEditor;
 let mainView, manageView, openChannelsBtn, backBtn;
 
 /* ---------------------------- Enable/disable UI --------------------------- */
 
 /**
- * The "Change allowed channels" button is only usable when YouTube tweaks are on
- * AND "Allowed channels only" is on — otherwise disable (dim) it.
+ * The "Change allowed channels" button only needs YouTube tweaks to be on — the
+ * allow-list "Enable" toggle now lives inside the channel editor itself.
  */
-function applyChannelsEnabled() {
+function applyOpenButtonEnabled() {
+  const masterOn = document.querySelector('[data-yt="enabled"]').checked;
+  openChannelsBtn.disabled = !masterOn;
+}
+
+/**
+ * The channel editor (add form + list) is only usable when YouTube tweaks are on
+ * AND the allow-list is enabled — otherwise dim it and make it non-interactive
+ * (so it reads as "all channels allowed").
+ */
+function applyChannelEditorEnabled() {
   const masterOn = document.querySelector('[data-yt="enabled"]').checked;
   const allowlistOn = document.querySelector(
     '[data-yt="allowedChannelsOnly"]',
   ).checked;
-  openChannelsBtn.disabled = !(masterOn && allowlistOn);
+  const on = masterOn && allowlistOn;
+  channelsEditor.classList.toggle("is-disabled", !on);
+  channelInputEl.disabled = !on;
+  channelFormEl.querySelector("button").disabled = !on;
 }
 
 /**
@@ -35,7 +48,8 @@ function applyYoutubeEnabled(enabled) {
     el.disabled = !enabled;
     el.closest(".toggle")?.classList.toggle("is-disabled", !enabled);
   });
-  applyChannelsEnabled();
+  applyOpenButtonEnabled();
+  applyChannelEditorEnabled();
 }
 
 /* ------------------------------- Toggles ---------------------------------- */
@@ -53,7 +67,7 @@ function bindToggles(settings) {
       current[key] = el.checked;
       await setYoutubeSettings(current);
       if (key === "enabled") applyYoutubeEnabled(el.checked);
-      if (key === "allowedChannelsOnly") applyChannelsEnabled();
+      if (key === "allowedChannelsOnly") applyChannelEditorEnabled();
     });
   });
   applyYoutubeEnabled(Boolean(settings.enabled));
@@ -135,6 +149,7 @@ export async function initYoutubeView() {
   channelEmptyEl = document.getElementById("channel-empty");
   channelFormEl = document.getElementById("channel-form");
   channelInputEl = document.getElementById("channel-input");
+  channelsEditor = document.getElementById("channels-editor");
 
   mainView = document.getElementById("youtube-main");
   manageView = document.getElementById("youtube-manage");
@@ -146,7 +161,7 @@ export async function initYoutubeView() {
     getChannels(),
   ]);
   bindChannelsNav();
-  bindToggles(settings); // calls applyChannelsEnabled — needs openChannelsBtn set
+  bindToggles(settings); // applies enable/disable states — needs DOM refs set
   renderChannels(channels);
   bindChannelForm();
 }

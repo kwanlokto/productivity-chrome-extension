@@ -66,6 +66,16 @@ section h2 {
   margin-bottom: 10px;
 }
 
+/* Section heading with an inline control floated to the right. */
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.section-head h2 { margin-bottom: 0; }
+.section-head .toggle { padding: 0; }
+
 #add-form { display: flex; gap: 8px; margin-bottom: 12px; }
 #domain-input {
   flex: 1;
@@ -248,6 +258,14 @@ section h2 {
 .domain-text { flex: 1; }
 #channel-list li span { flex: 1; }
 
+/* Only the channel list scrolls — keeps the header, tabs and Enable toggle in
+   view instead of the whole popup growing tall. */
+#channel-list {
+  max-height: 220px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
 #domain-list .btn-remove, #channel-list button {
   background: transparent;
   border: none;
@@ -298,3 +316,6 @@ section h2 {
 
 /* Sub-options inactive while "Enable YouTube tweaks" is off. */
 .toggle.is-disabled { opacity: 0.4; pointer-events: none; }
+
+/* Channel editor inactive when the allow-list "Enable" toggle is off. */
+#channels-editor.is-disabled { opacity: 0.4; pointer-events: none; }
