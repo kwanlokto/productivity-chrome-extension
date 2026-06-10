@@ -181,6 +181,8 @@ section h2 {
   cursor: pointer;
 }
 .wide-btn:hover { border-color: var(--accent); }
+.wide-btn:disabled { opacity: 0.4; cursor: default; }
+.wide-btn:disabled:hover { border-color: var(--surface-2); }
 
 .back-link {
   background: transparent;
@@ -260,4 +262,3 @@ section h2 {
 
 /* Sub-options inactive while "Enable YouTube tweaks" is off. */
 .toggle.is-disabled { opacity: 0.4; pointer-events: none; }
-#channels-section.is-disabled { opacity: 0.4; pointer-events: none; }

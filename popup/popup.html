@@ -55,39 +55,49 @@
   </div>
 
   <div class="panel" data-panel="youtube">
-    <section>
-      <h2>YouTube focus</h2>
-      <label class="toggle">
-        <input type="checkbox" data-yt="enabled" />
-        <span>Enable YouTube tweaks</span>
-      </label>
-      <label class="toggle">
-        <input type="checkbox" data-yt="hideHomeFeed" />
-        <span>Hide Home Feed</span>
-      </label>
-      <label class="toggle">
-        <input type="checkbox" data-yt="hideShorts" />
-        <span>Hide Shorts</span>
-      </label>
-      <label class="toggle">
-        <input type="checkbox" data-yt="hideWatchDistractions" />
-        <span>Hide Watch Distractions</span>
-      </label>
-      <label class="toggle">
-        <input type="checkbox" data-yt="allowedChannelsOnly" />
-        <span>Allowed Channels Only</span>
-      </label>
-    </section>
 
-    <section id="channels-section">
-      <h2>Allowed channels</h2>
-      <form id="channel-form">
-        <input id="channel-input" type="text" placeholder="add a channel, e.g. @veritasium" autocomplete="off" />
-        <button type="submit">Add</button>
-      </form>
-      <ul id="channel-list"></ul>
-      <p id="channel-empty" class="empty hidden">No channels allowed yet — everything will be hidden.</p>
-    </section>
+    <!-- Main view: focus toggles + entry to the channel editor -->
+    <div id="youtube-main">
+      <section>
+        <h2>YouTube focus</h2>
+        <label class="toggle">
+          <input type="checkbox" data-yt="enabled" />
+          <span>Enable YouTube tweaks</span>
+        </label>
+        <label class="toggle">
+          <input type="checkbox" data-yt="hideHomeFeed" />
+          <span>Hide Home Feed</span>
+        </label>
+        <label class="toggle">
+          <input type="checkbox" data-yt="hideShorts" />
+          <span>Hide Shorts</span>
+        </label>
+        <label class="toggle">
+          <input type="checkbox" data-yt="hideWatchDistractions" />
+          <span>Hide Watch Distractions</span>
+        </label>
+        <label class="toggle">
+          <input type="checkbox" data-yt="allowedChannelsOnly" />
+          <span>Allowed Channels Only</span>
+        </label>
+      </section>
+      <button id="open-channels" class="wide-btn">Change allowed channels</button>
+    </div>
+
+    <!-- Manage view: add/remove allowed channels -->
+    <div id="youtube-manage" class="hidden">
+      <button id="back-to-youtube" class="back-link">← Back</button>
+      <section id="channels-section">
+        <h2>Allowed channels</h2>
+        <form id="channel-form">
+          <input id="channel-input" type="text" placeholder="add a channel, e.g. @veritasium" autocomplete="off" />
+          <button type="submit">Add</button>
+        </form>
+        <ul id="channel-list"></ul>
+        <p id="channel-empty" class="empty hidden">No channels allowed yet — everything will be hidden.</p>
+      </section>
+    </div>
+
   </div>
 
   <script type="module" src="popup.js"></script>

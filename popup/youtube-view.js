@@ -9,23 +9,20 @@ import {
 } from "./storage.js";
 
 let channelListEl, channelEmptyEl, channelFormEl, channelInputEl;
+let mainView, manageView, openChannelsBtn, backBtn;
 
 /* ---------------------------- Enable/disable UI --------------------------- */
 
 /**
- * The allowed-channels section is only usable when YouTube tweaks are on AND
- * "Allowed channels only" is on — otherwise dim and disable it.
+ * The "Change allowed channels" button is only usable when YouTube tweaks are on
+ * AND "Allowed channels only" is on — otherwise disable (dim) it.
  */
 function applyChannelsEnabled() {
   const masterOn = document.querySelector('[data-yt="enabled"]').checked;
   const allowlistOn = document.querySelector(
     '[data-yt="allowedChannelsOnly"]',
   ).checked;
-  const on = masterOn && allowlistOn;
-
-  document.getElementById("channels-section")?.classList.toggle("is-disabled", !on);
-  channelInputEl.disabled = !on;
-  channelFormEl.querySelector("button").disabled = !on;
+  openChannelsBtn.disabled = !(masterOn && allowlistOn);
 }
 
 /**
@@ -91,6 +88,21 @@ function renderChannels(channels) {
   }
 }
 
+/**
+ * Switch between the main (toggles) view and the manage-channels view.
+ * @param {boolean} showManage
+ */
+function setChannelsView(showManage) {
+  mainView.classList.toggle("hidden", showManage);
+  manageView.classList.toggle("hidden", !showManage);
+}
+
+/** Wire the "Change allowed channels" / back navigation. */
+function bindChannelsNav() {
+  openChannelsBtn.addEventListener("click", () => setChannelsView(true));
+  backBtn.addEventListener("click", () => setChannelsView(false));
+}
+
 /** Wire up the add-channel form. */
 function bindChannelForm() {
   channelFormEl.addEventListener("submit", async (e) => {
@@ -116,11 +128,17 @@ export async function initYoutubeView() {
   channelFormEl = document.getElementById("channel-form");
   channelInputEl = document.getElementById("channel-input");
 
+  mainView = document.getElementById("youtube-main");
+  manageView = document.getElementById("youtube-manage");
+  openChannelsBtn = document.getElementById("open-channels");
+  backBtn = document.getElementById("back-to-youtube");
+
   const [settings, channels] = await Promise.all([
     getYoutubeSettings(),
     getChannels(),
   ]);
-  bindToggles(settings);
+  bindChannelsNav();
+  bindToggles(settings); // calls applyChannelsEnabled — needs openChannelsBtn set
   renderChannels(channels);
   bindChannelForm();
 }
