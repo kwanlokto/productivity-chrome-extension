@@ -41,3 +41,15 @@ export function formatClock(ms) {
   const s = totalSec % 60;
   return `${m}:${String(s).padStart(2, "0")}`;
 }
+
+/**
+ * (Re)start a one-shot CSS animation class on an element, even if it's already
+ * applied — removes it, forces a reflow, then re-adds it.
+ * @param {HTMLElement} el
+ * @param {string} className
+ */
+export function reanimate(el, className) {
+  el.classList.remove(className);
+  void el.offsetWidth; // force reflow so the animation can replay
+  el.classList.add(className);
+}

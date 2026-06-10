@@ -16,6 +16,7 @@ body {
   background: var(--bg);
   color: var(--text);
   padding: 16px;
+  overflow-x: hidden; /* clip the sub-view slide-in animation */
 }
 
 header {
@@ -185,16 +186,45 @@ section h2 {
 .wide-btn:disabled:hover { border-color: var(--surface-2); }
 
 .back-link {
-  background: transparent;
-  border: none;
-  color: var(--muted);
-  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface);
+  border: 1px solid var(--surface-2);
+  border-radius: 10px;
+  color: var(--text);
+  font-size: 14px;
   font-weight: 600;
-  padding: 0;
-  margin-bottom: 14px;
+  padding: 10px 16px;
+  margin-bottom: 16px;
   cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
 }
-.back-link:hover { color: var(--text); }
+.back-link::before {
+  content: "←";
+  font-size: 18px;
+  line-height: 1;
+}
+.back-link:hover {
+  border-color: var(--accent);
+  background: var(--surface-2);
+}
+
+/* --- Sub-view sliding animation --- */
+@keyframes fg-slide-in-right {
+  from { opacity: 0; transform: translateX(26px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes fg-slide-in-left {
+  from { opacity: 0; transform: translateX(-26px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.slide-in-right { animation: fg-slide-in-right 0.22s ease; }
+.slide-in-left  { animation: fg-slide-in-left 0.22s ease; }
+
+@media (prefers-reduced-motion: reduce) {
+  .slide-in-right, .slide-in-left { animation: none; }
+}
 
 /* --- Domain list --- */
 #domain-list, #channel-list { list-style: none; display: flex; flex-direction: column; gap: 6px; }

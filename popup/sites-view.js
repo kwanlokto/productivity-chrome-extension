@@ -1,7 +1,7 @@
 // "Blocked sites" tab: the current-tab action circle and the blocked-domain list.
 
 import { SNOOZE_MINUTES, RING_CIRCUMFERENCE } from "./config.js";
-import { normalizeDomain, formatClock } from "./util.js";
+import { normalizeDomain, formatClock, reanimate } from "./util.js";
 import { getDomains, getActiveSnooze, expiryOf } from "./storage.js";
 import { getCurrentTabDomain, domainMatchesBlocked } from "./tabs.js";
 import * as actions from "./actions.js";
@@ -166,12 +166,20 @@ function run(action) {
 }
 
 /**
- * Switch between the main (circle) view and the manage-list view.
+ * Switch between the main (circle) view and the manage-list view, sliding the
+ * incoming view in (from the right going forward, from the left going back).
  * @param {boolean} showManage
  */
 function setManageView(showManage) {
-  mainView.classList.toggle("hidden", showManage);
-  manageView.classList.toggle("hidden", !showManage);
+  if (showManage) {
+    mainView.classList.add("hidden");
+    manageView.classList.remove("hidden");
+    reanimate(manageView, "slide-in-right");
+  } else {
+    manageView.classList.add("hidden");
+    mainView.classList.remove("hidden");
+    reanimate(mainView, "slide-in-left");
+  }
 }
 
 /** Wire the "Change blocked sites" / back navigation. */

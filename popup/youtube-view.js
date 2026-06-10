@@ -1,6 +1,6 @@
 // "YouTube" tab: focus toggles and the allowed-channels list.
 
-import { normalizeChannel } from "./util.js";
+import { normalizeChannel, reanimate } from "./util.js";
 import {
   getYoutubeSettings,
   setYoutubeSettings,
@@ -89,12 +89,20 @@ function renderChannels(channels) {
 }
 
 /**
- * Switch between the main (toggles) view and the manage-channels view.
+ * Switch between the main (toggles) view and the manage-channels view, sliding
+ * the incoming view in (from the right going forward, from the left going back).
  * @param {boolean} showManage
  */
 function setChannelsView(showManage) {
-  mainView.classList.toggle("hidden", showManage);
-  manageView.classList.toggle("hidden", !showManage);
+  if (showManage) {
+    mainView.classList.add("hidden");
+    manageView.classList.remove("hidden");
+    reanimate(manageView, "slide-in-right");
+  } else {
+    manageView.classList.add("hidden");
+    mainView.classList.remove("hidden");
+    reanimate(mainView, "slide-in-left");
+  }
 }
 
 /** Wire the "Change allowed channels" / back navigation. */
