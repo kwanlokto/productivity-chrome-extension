@@ -195,6 +195,18 @@ function bindManageNav() {
   backBtn.addEventListener("click", () => setManageView(false));
 }
 
+/**
+ * Keep this tab in sync when settings change from elsewhere — the Settings tab
+ * editing the unlock duration, or a reset/import rewriting the block list.
+ */
+function bindStorageSync() {
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === "sync" && (changes.unlockMinutes || changes.blockedDomains)) {
+      refresh();
+    }
+  });
+}
+
 /** Wire up the add-domain form. */
 function bindAddForm() {
   formEl.addEventListener("submit", (e) => {
@@ -230,5 +242,6 @@ export function initSitesView() {
 
   bindManageNav();
   bindAddForm();
+  bindStorageSync();
   refresh();
 }

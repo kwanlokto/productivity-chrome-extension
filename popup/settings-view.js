@@ -11,7 +11,7 @@ import {
   resetSettings,
 } from "./storage.js";
 
-let unlockForm, unlockInput, exportBtn, importBtn, importFile, resetBtn, statusEl;
+let unlockInput, exportBtn, importBtn, importFile, resetBtn, statusEl;
 
 // The "Reset" button is a two-step confirm: first click arms it, second resets.
 let resetArmed = false;
@@ -44,21 +44,33 @@ async function loadUnlock() {
   unlockInput.value = String(await getUnlockMinutes());
 }
 
-function bindUnlockForm() {
-  unlockForm.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const minutes = clampMinutes(
-      unlockInput.value,
-      MIN_UNLOCK_MINUTES,
-      MAX_UNLOCK_MINUTES,
-    );
-    if (minutes == null) {
-      setStatus(`Enter a number from ${MIN_UNLOCK_MINUTES} to ${MAX_UNLOCK_MINUTES}.`, "error");
-      return;
-    }
-    await setUnlockMinutes(minutes);
-    unlockInput.value = String(minutes); // show the clamped value
-    setStatus(`Unlock duration saved — ${minutes} min.`);
+/** Persist the entered duration. Empty/invalid input reverts to the saved value. */
+async function saveUnlock() {
+  if (unlockInput.value.trim() === "") {
+    await loadUnlock();
+    return;
+  }
+  const minutes = clampMinutes(
+    unlockInput.value,
+    MIN_UNLOCK_MINUTES,
+    MAX_UNLOCK_MINUTES,
+  );
+  if (minutes == null) {
+    await loadUnlock();
+    setStatus(`Enter a number from ${MIN_UNLOCK_MINUTES} to ${MAX_UNLOCK_MINUTES}.`, "error");
+    return;
+  }
+  await setUnlockMinutes(minutes);
+  unlockInput.value = String(minutes); // show the clamped value
+  setStatus(`Unlock duration saved — ${minutes} min.`);
+}
+
+function bindUnlockInput() {
+  // Auto-save when the field is committed (blur). Enter has no form to submit,
+  // so blur it to trigger the same `change` path.
+  unlockInput.addEventListener("change", saveUnlock);
+  unlockInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") unlockInput.blur();
   });
 }
 
@@ -143,7 +155,6 @@ function bindReset() {
 
 /** Initialize the Settings tab. */
 export async function initSettingsView() {
-  unlockForm = document.getElementById("unlock-form");
   unlockInput = document.getElementById("unlock-input");
   exportBtn = document.getElementById("export-btn");
   importBtn = document.getElementById("import-btn");
@@ -152,7 +163,7 @@ export async function initSettingsView() {
   statusEl = document.getElementById("settings-status");
 
   await loadUnlock();
-  bindUnlockForm();
+  bindUnlockInput();
   bindExport();
   bindImport();
   bindReset();

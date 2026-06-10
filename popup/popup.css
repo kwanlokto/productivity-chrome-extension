@@ -305,6 +305,7 @@ section h2 {
 
 /* --- Settings tab --- */
 .inline-form { display: flex; align-items: center; gap: 8px; }
+.inline-form .field-label { font-size: 14px; }
 #unlock-input {
   width: 72px;
   background: var(--surface);
@@ -316,18 +317,6 @@ section h2 {
 }
 #unlock-input:focus { outline: none; border-color: var(--accent); }
 .inline-form .unit { color: var(--muted); font-size: 13px; }
-.inline-form button {
-  margin-left: auto;
-  background: var(--accent);
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  padding: 8px 14px;
-  font-weight: 600;
-  font-size: 13px;
-  cursor: pointer;
-}
-.inline-form button:hover { background: #4f46e5; }
 
 /* Stacked backup/restore buttons sit closer together than a lone wide-btn. */
 #import-btn { margin-top: 8px; }
