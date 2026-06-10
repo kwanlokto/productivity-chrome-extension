@@ -57,11 +57,12 @@ function renderDomains(domains, snoozed) {
  */
 function showCircle(stateClass, main, sub, onClick) {
   actionWrap.classList.remove("hidden");
-  actionCircle.classList.remove("is-block", "is-unblock", "is-countdown");
+  actionCircle.classList.remove("is-block", "is-unblock", "is-countdown", "is-disabled");
   actionCircle.classList.add(stateClass);
   circleMain.textContent = main;
   circleSub.textContent = sub;
   actionCircle.onclick = onClick;
+  actionCircle.disabled = onClick == null; // inert when there's no action
 }
 
 /**
@@ -120,8 +121,8 @@ async function updateStatusCircle() {
   const matched = blockable ? domainMatchesBlocked(tabDomain, domains) : null;
 
   if (!blockable) {
-    // chrome://, new tab, etc. — nothing to act on.
-    actionWrap.classList.add("hidden");
+    // chrome://, new tab, etc. — show the circle but inert (nothing to act on).
+    showCircle("is-disabled", "—", "can’t block", null);
     return;
   }
 
