@@ -93,6 +93,21 @@ function syncRules() {
   return syncChain;
 }
 
+/**
+ * Reload any open tabs on a domain so the (just-restored) blocking rule catches
+ * them — otherwise a tab already sitting on the live site stays unblocked until
+ * the user navigates.
+ * @param {string} domain
+ */
+async function reblockOpenTabs(domain) {
+  const tabs = await chrome.tabs.query({
+    url: [`*://${domain}/*`, `*://*.${domain}/*`],
+  });
+  for (const tab of tabs) {
+    if (tab.id != null) chrome.tabs.reload(tab.id);
+  }
+}
+
 // Restore blocking when snooze expires.
 chrome.alarms.onAlarm.addListener(async (alarm) => {
   if (!alarm.name.startsWith("snooze:")) return;
@@ -100,7 +115,8 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
   const snoozed = await getSnoozed();
   delete snoozed[domain];
   await setSnoozed(snoozed);
-  await syncRules();
+  await syncRules(); // restore the blocking rule
+  await reblockOpenTabs(domain); // and bounce any open tabs to the blocked page
 });
 
 
