@@ -59,6 +59,71 @@ snoozes live in `chrome.storage.local` under `snoozed`
 3. Click **Load unpacked** and select this folder.
 4. Pin **Focus Guard** and click the icon to manage your block list and YouTube settings.
 
+## Publish to the Chrome Web Store
+
+### 1. Build the upload zip
+
+The store wants a `.zip` with `manifest.json` at the **root** (not nested in a
+folder). Two ways to produce it:
+
+- **Locally** — zip the project, excluding repo/dev files:
+  ```powershell
+  # from the project root (PowerShell)
+  $items = Get-ChildItem -Force |
+    Where-Object { $_.Name -notin @('.git', '.github', 'dist', 'focus-guard.zip') }
+  Compress-Archive -Path $items.FullName -DestinationPath focus-guard.zip -Force
+  ```
+- **Via CI** — the [build workflow](.github/workflows/build.yml) produces
+  `focus-guard-v<version>.zip` on every push to `main` (downloadable from the run's
+  **Artifacts**), and attaches it to a GitHub Release when you push a `v*` tag:
+  ```powershell
+  git tag v1.1.0
+  git push origin v1.1.0
+  ```
+
+### 2. Register as a developer (one time)
+
+1. Go to the [Chrome Web Store Developer Dashboard](https://chrome.google.com/webstore/devconsole).
+2. Sign in and pay the **one-time \$5** registration fee.
+
+### 3. Create the listing
+
+1. Click **Add new item** and upload the zip from step 1.
+2. Fill in the store listing:
+   - **Description** and **category** (e.g. *Productivity*).
+   - At least one **1280×800** (or 640×400) screenshot — the popup and the blocked
+     page are good choices.
+   - The **128×128** store icon (already in [icons/](icons/)).
+
+### 4. Privacy & permissions review
+
+This extension requests broad access, so the dashboard will require you to justify it:
+
+- **`host_permissions: <all_urls>`** — needed so a `declarativeNetRequest` *redirect*
+  rule can send any blocked site to the in-extension reminder page (redirect rules
+  require host access to the request). Justify it as: *"Redirect user-chosen blocked
+  domains to the extension's blocked page."*
+- **`declarativeNetRequest`, `tabs`, `alarms`, `storage`** — blocking rules, reading
+  the active tab to drive the popup, scheduling the snooze re-block, and saving
+  settings, respectively.
+- **Privacy policy URL** — required because of the broad host access. A short page
+  stating that Focus Guard stores your block list and settings only in Chrome
+  storage and **does not collect, transmit, or sell any data** is enough (host it
+  anywhere, e.g. GitHub Pages).
+- In **Privacy practices**, declare that no user data is collected.
+
+### 5. Submit, then update
+
+- Click **Submit for review**. Review typically takes hours to a few days; broad
+  host permissions can draw extra scrutiny. Choose **Unlisted** if you don't want it
+  publicly searchable.
+- For every later upload, **bump `version`** in [manifest.json](manifest.json) — the
+  store rejects a re-upload of an existing version number.
+
+> **Tip:** to minimize review friction you can swap the `redirect` blocking rule for
+> a plain `block` rule, which doesn't need `<all_urls>` — but you'd lose the custom
+> blocked page in favor of Chrome's generic block screen.
+
 ## Notes
 
 - YouTube changes its markup often; if an element stops being hidden, the selectors
