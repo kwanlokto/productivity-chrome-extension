@@ -109,11 +109,11 @@ async function reblockOpenTabs(domain) {
 }
 
 // --- Toolbar countdown ---
-// In the last 30s of a snooze, show the seconds left on the toolbar icon's badge.
-// The final 10s go "dramatic": a red alert icon and a fast red/dark flashing badge.
+// In the last 30s of a snooze the whole toolbar icon turns into an alarm: a bold
+// solid-colour icon (drawn on the fly) plus the seconds on the badge. The final
+// 10s go "dramatic" — the icon flashes red so it's impossible to miss.
 
 const NORMAL_ICON = { 16: "icons/icon16.png", 48: "icons/icon48.png", 128: "icons/icon128.png" };
-const ALERT_ICON = { 16: "icons/alert16.png", 48: "icons/alert48.png", 128: "icons/alert128.png" };
 
 const COUNTDOWN_WINDOW_MS = 30_000; // when the badge starts showing
 const DRAMATIC_MS = 10_000; // when the flashing begins
@@ -129,7 +129,25 @@ async function getNearestExpiry() {
   return expiries.length ? Math.min(...expiries) : null;
 }
 
-/** Clear the badge and restore the normal icon. */
+/** Draw a rounded-square icon filled with one solid colour. */
+function solidIconData(size, color) {
+  const canvas = new OffscreenCanvas(size, size);
+  const ctx = canvas.getContext("2d");
+  ctx.beginPath();
+  ctx.roundRect(0, 0, size, size, Math.max(2, size * 0.24));
+  ctx.fillStyle = color;
+  ctx.fill();
+  return ctx.getImageData(0, 0, size, size);
+}
+
+/** Replace the toolbar icon with a solid colour (drawn at toolbar sizes). */
+function setIconColor(color) {
+  chrome.action.setIcon({
+    imageData: { 16: solidIconData(16, color), 32: solidIconData(32, color) },
+  });
+}
+
+/** Clear the badge and restore the normal leaf icon. */
 function clearBadge() {
   flashOn = false;
   chrome.action.setBadgeText({ text: "" });
@@ -140,18 +158,17 @@ function clearBadge() {
 function paintFrame(remaining) {
   const secs = Math.ceil(remaining / 1000);
   chrome.action.setBadgeText({ text: String(secs) });
+  chrome.action.setBadgeTextColor?.({ color: "#ffffff" });
 
   if (remaining <= DRAMATIC_MS) {
-    // Final 10s: red alert icon + flashing red badge.
+    // Final 10s: the whole icon flashes red; badge flashes the inverse shade.
     flashOn = !flashOn;
-    chrome.action.setIcon({ path: ALERT_ICON });
-    chrome.action.setBadgeBackgroundColor({ color: flashOn ? "#ef4444" : "#7f1d1d" });
-    chrome.action.setBadgeTextColor?.({ color: "#ffffff" });
+    setIconColor(flashOn ? "#ef4444" : "#7f1d1d");
+    chrome.action.setBadgeBackgroundColor({ color: flashOn ? "#7f1d1d" : "#ef4444" });
   } else {
-    // 30s–11s: steady amber.
-    chrome.action.setIcon({ path: NORMAL_ICON });
-    chrome.action.setBadgeBackgroundColor({ color: "#f59e0b" });
-    chrome.action.setBadgeTextColor?.({ color: "#1f2937" });
+    // 30s–11s: a bold orange icon you can't miss.
+    setIconColor("#f97316");
+    chrome.action.setBadgeBackgroundColor({ color: "#9a3412" });
   }
 }
 
@@ -182,11 +199,22 @@ async function tickCountdown() {
   paintFrame(remaining);
 }
 
+/** Pop the extension's own popup open, ignoring "no active window" errors. */
+function openPopupSafely() {
+  try {
+    const p = chrome.action.openPopup?.();
+    if (p && typeof p.catch === "function") p.catch(() => {});
+  } catch {
+    /* openPopup unsupported or no focused window — the badge still counts down */
+  }
+}
+
 /** Start the per-frame ticker (idempotent). Ticking ~3×/s keeps the SW alive. */
 function startTicker() {
   if (countdownInterval) return;
   countdownInterval = setInterval(tickCountdown, 300);
   tickCountdown();
+  openPopupSafely(); // surface the countdown to the user as it begins
 }
 
 /**
