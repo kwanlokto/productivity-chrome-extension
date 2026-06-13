@@ -5,6 +5,13 @@ import { initSitesView } from "./sites-view.js";
 import { initYoutubeView } from "./youtube-view.js";
 import { initSettingsView } from "./settings-view.js";
 
+// Tell the background worker the popup is open (so it can reopen at 0:10 only if
+// we were closed). The port stays connected for the life of the popup; closing
+// the popup disconnects it.
+const popupPort = chrome.runtime.connect({ name: "popup" });
+// Keep a reference so the port isn't garbage-collected.
+window.addEventListener("unload", () => popupPort.disconnect());
+
 /** Wire the top-level Blocked-sites / YouTube tab switcher. */
 function initNav() {
   const tabs = document.querySelectorAll(".tab");

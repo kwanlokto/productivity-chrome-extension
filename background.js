@@ -108,19 +108,26 @@ async function reblockOpenTabs(domain) {
   }
 }
 
-// --- Toolbar countdown ---
-// In the last 30s of a snooze the whole toolbar icon turns into an alarm: a bold
-// solid-colour icon (drawn on the fly) plus the seconds on the badge. The final
-// 10s go "dramatic" — the icon flashes red so it's impossible to miss.
+// --- Auto-open countdown ---
+// We don't touch the toolbar icon. Instead the popup (which shows the in-popup
+// countdown circle) is opened 30s before the nearest snooze expires, and reopened
+// at 10s if the user closed it — a clear "your time is almost up" nudge.
 
-const NORMAL_ICON = { 16: "icons/icon16.png", 48: "icons/icon48.png", 128: "icons/icon128.png" };
+const OPEN_AT_30_MS = 30_000;
+const OPEN_AT_10_MS = 10_000;
+const OPEN30_ALARM = "open-30";
+const OPEN10_ALARM = "open-10";
 
-const COUNTDOWN_WINDOW_MS = 30_000; // when the badge starts showing
-const DRAMATIC_MS = 10_000; // when the flashing begins
-const COUNTDOWN_ALARM = "countdown";
-
-let countdownInterval = null;
-let flashOn = false;
+// Whether the popup is currently open, tracked via a runtime port it connects on
+// load (see popup/popup.js). Lets us reopen at 10s only if it was closed.
+let popupOpen = false;
+chrome.runtime.onConnect.addListener((port) => {
+  if (port.name !== "popup") return;
+  popupOpen = true;
+  port.onDisconnect.addListener(() => {
+    popupOpen = false;
+  });
+});
 
 /** Soonest expiry among active snoozes, or null if none. */
 async function getNearestExpiry() {
@@ -129,118 +136,43 @@ async function getNearestExpiry() {
   return expiries.length ? Math.min(...expiries) : null;
 }
 
-/** Draw a rounded-square icon filled with one solid colour. */
-function solidIconData(size, color) {
-  const canvas = new OffscreenCanvas(size, size);
-  const ctx = canvas.getContext("2d");
-  ctx.beginPath();
-  ctx.roundRect(0, 0, size, size, Math.max(2, size * 0.24));
-  ctx.fillStyle = color;
-  ctx.fill();
-  return ctx.getImageData(0, 0, size, size);
-}
-
-/** Replace the toolbar icon with a solid colour (drawn at toolbar sizes). */
-function setIconColor(color) {
-  chrome.action.setIcon({
-    imageData: { 16: solidIconData(16, color), 32: solidIconData(32, color) },
-  });
-}
-
-/** Clear the badge and restore the normal leaf icon. */
-function clearBadge() {
-  flashOn = false;
-  chrome.action.setBadgeText({ text: "" });
-  chrome.action.setIcon({ path: NORMAL_ICON });
-}
-
-/** Paint one frame of the countdown for `remaining` ms left. */
-function paintFrame(remaining) {
-  const secs = Math.ceil(remaining / 1000);
-  chrome.action.setBadgeText({ text: String(secs) });
-  chrome.action.setBadgeTextColor?.({ color: "#ffffff" });
-
-  if (remaining <= DRAMATIC_MS) {
-    // Final 10s: the whole icon flashes red; badge flashes the inverse shade.
-    flashOn = !flashOn;
-    setIconColor(flashOn ? "#ef4444" : "#7f1d1d");
-    chrome.action.setBadgeBackgroundColor({ color: flashOn ? "#7f1d1d" : "#ef4444" });
-  } else {
-    // 30s–11s: a bold orange icon you can't miss.
-    setIconColor("#f97316");
-    chrome.action.setBadgeBackgroundColor({ color: "#9a3412" });
-  }
-}
-
-function stopTicker() {
-  if (countdownInterval) {
-    clearInterval(countdownInterval);
-    countdownInterval = null;
-  }
-}
-
-/**
- * One tick of the countdown: figure out the nearest snooze and either paint the
- * badge, clear it (not in the window / unsnoozed), or stop (expired).
- */
-async function tickCountdown() {
-  const expiry = await getNearestExpiry();
-  const remaining = expiry ? expiry - Date.now() : -1;
-
-  if (remaining <= 0) {
-    clearBadge();
-    stopTicker();
-    return;
-  }
-  if (remaining > COUNTDOWN_WINDOW_MS) {
-    clearBadge(); // alarm woke us a touch early; wait for the window
-    return;
-  }
-  paintFrame(remaining);
-}
-
-/** Pop the extension's own popup open, ignoring "no active window" errors. */
+/** Open the extension's own popup, ignoring "no active window"/unsupported errors. */
 function openPopupSafely() {
   try {
     const p = chrome.action.openPopup?.();
     if (p && typeof p.catch === "function") p.catch(() => {});
   } catch {
-    /* openPopup unsupported or no focused window — the badge still counts down */
+    /* no focused window or unsupported — nothing else to do */
   }
-}
-
-/** Start the per-frame ticker (idempotent). Ticking ~3×/s keeps the SW alive. */
-function startTicker() {
-  if (countdownInterval) return;
-  countdownInterval = setInterval(tickCountdown, 300);
-  tickCountdown();
-  openPopupSafely(); // surface the countdown to the user as it begins
 }
 
 /**
- * Schedule (or clear) the alarm that wakes the worker 30s before the nearest
- * snooze expires. If we're already inside the window, start ticking immediately.
+ * (Re)schedule the two alarms that open the popup 30s and 10s before the nearest
+ * snooze expires. Alarms persist across worker restarts, so they fire even if the
+ * service worker was asleep.
  */
 async function scheduleCountdown() {
+  await chrome.alarms.clear(OPEN30_ALARM);
+  await chrome.alarms.clear(OPEN10_ALARM);
   const expiry = await getNearestExpiry();
-  if (!expiry) {
-    await chrome.alarms.clear(COUNTDOWN_ALARM);
-    clearBadge();
-    stopTicker();
-    return;
+  if (!expiry) return;
+  const now = Date.now();
+  if (expiry - OPEN_AT_30_MS > now) {
+    await chrome.alarms.create(OPEN30_ALARM, { when: expiry - OPEN_AT_30_MS });
   }
-  const when = expiry - COUNTDOWN_WINDOW_MS;
-  if (when <= Date.now()) {
-    startTicker();
-  } else {
-    await chrome.alarms.create(COUNTDOWN_ALARM, { when });
+  if (expiry - OPEN_AT_10_MS > now) {
+    await chrome.alarms.create(OPEN10_ALARM, { when: expiry - OPEN_AT_10_MS });
   }
 }
 
 // --- Alarms ---
 chrome.alarms.onAlarm.addListener(async (alarm) => {
-  if (alarm.name === COUNTDOWN_ALARM) {
-    startTicker(); // begin painting the badge for the final 30s
+  if (alarm.name === OPEN30_ALARM) {
+    openPopupSafely(); // show the countdown as the final 30s begin
+    return;
+  }
+  if (alarm.name === OPEN10_ALARM) {
+    if (!popupOpen) openPopupSafely(); // reopen only if the user closed it
     return;
   }
   if (!alarm.name.startsWith("snooze:")) return;
@@ -249,7 +181,7 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
   const domain = alarm.name.slice("snooze:".length);
   const snoozed = await getSnoozed();
   delete snoozed[domain];
-  await setSnoozed(snoozed); // (storage change re-schedules/clears the countdown)
+  await setSnoozed(snoozed); // (storage change re-schedules/clears the open alarms)
   await syncRules(); // restore the blocking rule
   await reblockOpenTabs(domain); // and bounce any open tabs to the blocked page
 });
@@ -269,10 +201,10 @@ chrome.runtime.onInstalled.addListener(async () => {
 
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === "sync" && changes.blockedDomains) syncRules();
-  // Snooze changes drive the toolbar countdown. NOTE: we deliberately do NOT
-  // re-sync the blocking rules here — the popup owns rule add/remove for
+  // Snooze changes (re)schedule the auto-open alarms. NOTE: we deliberately do
+  // NOT re-sync the blocking rules here — the popup owns rule add/remove for
   // snooze/unsnooze directly, and re-syncing would race with it (re-blocking a
-  // site the popup just unblocked). Scheduling the countdown touches no rules.
+  // site the popup just unblocked). Scheduling the alarms touches no rules.
   if (area === "local" && changes.snoozed) scheduleCountdown();
 });
 

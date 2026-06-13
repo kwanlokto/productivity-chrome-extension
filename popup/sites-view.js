@@ -103,10 +103,36 @@ function startCountdown(snoozeEntry) {
   countdownTimer = setInterval(tick, 250);
 }
 
+// If a snooze is within this window of expiring, surface its countdown even when
+// the user is on a different tab (so the auto-opened popup shows it).
+const IMMINENT_MS = 31_000;
+
+/**
+ * Which snooze (if any) the circle should count down: the current tab's snooze,
+ * or — when one is about to expire — the soonest-expiring snooze.
+ * @param {string | null} matched the current tab's blocked-list match
+ * @param {Record<string, unknown>} snoozed active snooze map
+ * @returns {string | null} the domain to count down, or null
+ */
+function pickCountdownDomain(matched, snoozed) {
+  if (matched && snoozed[matched]) return matched; // current tab is snoozed
+
+  let nearest = null;
+  let nearestExpiry = Infinity;
+  for (const [domain, entry] of Object.entries(snoozed)) {
+    const e = expiryOf(entry);
+    if (e < nearestExpiry) {
+      nearestExpiry = e;
+      nearest = domain;
+    }
+  }
+  return nearest && nearestExpiry - Date.now() <= IMMINENT_MS ? nearest : null;
+}
+
 /**
  * Inspect the active tab and configure the circle for the right state:
- * not-blockable (hidden), not-blocked (Block), blocked (Unblock), or
- * snoozed (countdown / Re-block).
+ * snoozed (countdown / Re-block), not-blockable (inert), not-blocked (Block), or
+ * blocked (Unlock).
  */
 async function updateStatusCircle() {
   if (countdownTimer) {
@@ -126,6 +152,15 @@ async function updateStatusCircle() {
   const blockable = tabDomain && tabDomain.includes(".");
   const matched = blockable ? domainMatchesBlocked(tabDomain, domains) : null;
 
+  const countdownDomain = pickCountdownDomain(matched, snoozed);
+  if (countdownDomain) {
+    showCircle("is-countdown", "", "left", () =>
+      run(() => actions.unsnooze(countdownDomain)),
+    );
+    startCountdown(snoozed[countdownDomain]);
+    return;
+  }
+
   if (!blockable) {
     // chrome://, new tab, etc. — show the circle but inert (nothing to act on).
     showCircle("is-disabled", "—", "can’t block", null);
@@ -139,17 +174,9 @@ async function updateStatusCircle() {
     return;
   }
 
-  const snoozeEntry = snoozed[matched];
-  if (snoozeEntry) {
-    showCircle("is-countdown", "", "left", () =>
-      run(() => actions.unsnooze(matched)),
-    );
-    startCountdown(snoozeEntry);
-  } else {
-    showCircle("is-unblock", "Unlock", `${unlockMinutes} min`, () =>
-      run(() => actions.snooze(matched, unlockMinutes)),
-    );
-  }
+  showCircle("is-unblock", "Unlock", `${unlockMinutes} min`, () =>
+    run(() => actions.snooze(matched, unlockMinutes)),
+  );
 }
 
 /* -------------------------------- Plumbing -------------------------------- */
