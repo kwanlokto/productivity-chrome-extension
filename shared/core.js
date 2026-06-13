@@ -9,7 +9,7 @@ export const DEFAULT_BLOCKED = ["facebook.com", "instagram.com", "tiktok.com"];
 
 /** Default YouTube focus settings. Each "show*" flag defaults off. */
 export const DEFAULT_YOUTUBE = {
-  enabled: false,
+  enabled: true,
   showShorts: false,
   showHomeFeed: false,
   showRecommendations: false,
