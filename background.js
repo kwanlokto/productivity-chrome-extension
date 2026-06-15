@@ -110,23 +110,32 @@ async function reblockOpenTabs(domain) {
 
 // --- Auto-open countdown ---
 // We don't touch the toolbar icon. Instead the popup (which shows the in-popup
-// countdown circle) is opened 30s before the nearest snooze expires, and reopened
-// at 10s if the user closed it — a clear "your time is almost up" nudge.
+// countdown circle) is opened 30s before the nearest snooze expires. Chrome can't
+// pin a popup open, so to keep it up through that final window we REOPEN it
+// whenever it closes (navigating/clicking the page closes it) and whenever a
+// browser window regains focus.
 
 const OPEN_AT_30_MS = 30_000;
-const OPEN_AT_10_MS = 10_000;
 const OPEN30_ALARM = "open-30";
-const OPEN10_ALARM = "open-10";
 
 // Whether the popup is currently open, tracked via a runtime port it connects on
-// load (see popup/popup.js). Lets us reopen at 10s only if it was closed.
+// load (see popup/popup.js).
 let popupOpen = false;
 chrome.runtime.onConnect.addListener((port) => {
   if (port.name !== "popup") return;
   popupOpen = true;
   port.onDisconnect.addListener(() => {
     popupOpen = false;
+    // Keep it up during the final window: reopen shortly after it closes.
+    setTimeout(reopenIfInWindow, 200);
   });
+});
+
+// When a browser window regains focus during the final window (user came back
+// from another app/window, or the first open failed), bring the popup back.
+chrome.windows.onFocusChanged.addListener((windowId) => {
+  if (windowId === chrome.windows.WINDOW_ID_NONE) return;
+  reopenIfInWindow();
 });
 
 /** Soonest expiry among active snoozes, or null if none. */
@@ -134,6 +143,14 @@ async function getNearestExpiry() {
   const snoozed = await getSnoozed();
   const expiries = Object.values(snoozed).map(expiryOf);
   return expiries.length ? Math.min(...expiries) : null;
+}
+
+/** Are we inside the final-30s window of an active snooze? */
+async function withinFinalWindow() {
+  const expiry = await getNearestExpiry();
+  if (!expiry) return false;
+  const remaining = expiry - Date.now();
+  return remaining > 0 && remaining <= OPEN_AT_30_MS;
 }
 
 /** Open the extension's own popup, ignoring "no active window"/unsupported errors. */
@@ -146,22 +163,26 @@ function openPopupSafely() {
   }
 }
 
+/** Reopen the popup if it's closed and we're still in the final window. */
+async function reopenIfInWindow() {
+  if (popupOpen) return;
+  if (await withinFinalWindow()) openPopupSafely();
+}
+
 /**
- * (Re)schedule the two alarms that open the popup 30s and 10s before the nearest
- * snooze expires. Alarms persist across worker restarts, so they fire even if the
- * service worker was asleep.
+ * (Re)schedule the alarm that opens the popup 30s before the nearest snooze
+ * expires. Alarms persist across worker restarts, so it fires even if the service
+ * worker was asleep. If we're already inside the window, open right away.
  */
 async function scheduleCountdown() {
   await chrome.alarms.clear(OPEN30_ALARM);
-  await chrome.alarms.clear(OPEN10_ALARM);
   const expiry = await getNearestExpiry();
   if (!expiry) return;
-  const now = Date.now();
-  if (expiry - OPEN_AT_30_MS > now) {
-    await chrome.alarms.create(OPEN30_ALARM, { when: expiry - OPEN_AT_30_MS });
-  }
-  if (expiry - OPEN_AT_10_MS > now) {
-    await chrome.alarms.create(OPEN10_ALARM, { when: expiry - OPEN_AT_10_MS });
+  const when = expiry - OPEN_AT_30_MS;
+  if (when > Date.now()) {
+    await chrome.alarms.create(OPEN30_ALARM, { when });
+  } else if (expiry > Date.now()) {
+    openPopupSafely(); // already inside the window
   }
 }
 
@@ -171,17 +192,13 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     openPopupSafely(); // show the countdown as the final 30s begin
     return;
   }
-  if (alarm.name === OPEN10_ALARM) {
-    if (!popupOpen) openPopupSafely(); // reopen only if the user closed it
-    return;
-  }
   if (!alarm.name.startsWith("snooze:")) return;
 
   // Snooze expired: restore blocking.
   const domain = alarm.name.slice("snooze:".length);
   const snoozed = await getSnoozed();
   delete snoozed[domain];
-  await setSnoozed(snoozed); // (storage change re-schedules/clears the open alarms)
+  await setSnoozed(snoozed); // (storage change re-schedules/clears the open alarm)
   await syncRules(); // restore the blocking rule
   await reblockOpenTabs(domain); // and bounce any open tabs to the blocked page
 });
