@@ -104,6 +104,7 @@ section h2 {
 
 /* --- Big circular action control --- */
 #action-circle-wrap {
+  position: relative; /* positions the smaller 2× button beside the circle */
   display: flex;
   justify-content: center;
   margin-top: 16px;
@@ -180,6 +181,41 @@ section h2 {
   color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.06em;
+}
+
+/* --- Secondary 2× unlock button (sits in the gutter right of the circle) --- */
+#action-circle-2x {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  width: 66px;
+  height: 66px;
+  border-radius: 50%;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  background: rgba(239, 68, 68, 0.15); /* matches the .is-unblock disc */
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  transition: filter 0.15s;
+}
+#action-circle-2x:hover { filter: brightness(1.5); }
+.circle-2x-main {
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+.circle-2x-sub {
+  font-size: 9px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
 }
 
 /* --- Sites sub-view navigation --- */
