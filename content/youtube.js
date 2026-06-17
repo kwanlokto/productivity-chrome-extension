@@ -31,6 +31,33 @@ function applyClasses() {
   }
 }
 
+/**
+ * When the home feed is hidden, show a "home feed hidden" message (with the sprout
+ * image) in its place. Injected as a real element so the image can't be clipped.
+ */
+function applyHomeMessage() {
+  const home = document.querySelector('ytd-browse[page-subtype="home"]:not([hidden])');
+  const active = Boolean(settings.enabled && !settings.showHomeFeed && home);
+  const existing = document.getElementById("fg-home-msg");
+
+  if (!active) {
+    existing?.remove();
+    return;
+  }
+  if (existing && existing.parentElement === home) return; // already in place
+
+  existing?.remove();
+  const msg = document.createElement("div");
+  msg.id = "fg-home-msg";
+  const img = document.createElement("img");
+  img.src = chrome.runtime.getURL("popup/sprout.png");
+  img.alt = "";
+  const p = document.createElement("p");
+  p.textContent = "Home feed hidden by Focus Guard. Search for what you actually came for.";
+  msg.append(img, p);
+  home.appendChild(msg);
+}
+
 // ---------- Channel matching ----------
 
 /**
@@ -263,6 +290,7 @@ function refresh() {
   requestAnimationFrame(() => {
     scheduled = false;
     applyClasses();
+    applyHomeMessage();
     filterItems();
     enforceWatchPage();
   });

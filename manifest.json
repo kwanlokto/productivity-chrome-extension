@@ -39,7 +39,7 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["blocked.html"],
+      "resources": ["blocked.html", "popup/sprout.png"],
       "matches": ["<all_urls>"]
     }
   ]

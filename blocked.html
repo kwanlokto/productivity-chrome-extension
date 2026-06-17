@@ -24,8 +24,10 @@
       border-radius: 20px;
       padding: 48px 36px;
     }
-    .logo { width: 72px; height: 72px; margin-bottom: 16px; }
+    .title-row { display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 12px; }
+    .logo { width: 48px; height: 48px; flex-shrink: 0; }
     h1 { font-size: 26px; font-weight: 700; margin-bottom: 12px; }
+    .title-row h1 { margin: 0; }
     .domain {
       display: inline-block;
       font-family: ui-monospace, "SF Mono", Menlo, monospace;
@@ -57,8 +59,10 @@
 </head>
 <body>
   <div class="card">
-    <img class="logo" src="popup/sprout.png" alt="" />
-    <h1>Stay focused</h1>
+    <div class="title-row">
+      <img class="logo" src="popup/sprout.png" alt="" />
+      <h1>Stay focused</h1>
+    </div>
     <div class="domain" id="domain">this site</div>
     <p>Focus Guard is blocking this site to protect your attention. Get back to what matters.</p>
     <p class="quote" id="quote"></p>
