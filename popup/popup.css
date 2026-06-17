@@ -25,7 +25,7 @@ header {
   gap: 8px;
   margin-bottom: 18px;
 }
-.logo { font-size: 22px; }
+.logo { width: 26px; height: 26px; flex-shrink: 0; }
 header h1 { font-size: 18px; font-weight: 700; }
 
 /* Tabs */
