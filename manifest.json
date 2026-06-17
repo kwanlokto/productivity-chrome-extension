@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Focus Guard — Productivity Blocker",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Block distracting sites (Facebook, Instagram, TikTok by default) and stop doom scrolling on YouTube.",
   "permissions": [
     "declarativeNetRequest",
