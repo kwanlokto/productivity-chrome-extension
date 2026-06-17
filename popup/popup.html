@@ -34,12 +34,19 @@
               <span class="circle-sub" id="circle-sub"></span>
             </span>
           </button>
-          <!-- Secondary unlock: double the configured duration. Only shown on a
-               blocked site (the "Unlock" state). -->
-          <button id="action-circle-2x" type="button" class="hidden" aria-label="Unlock for double the duration">
-            <span class="circle-2x-main">2×</span>
-            <span class="circle-2x-sub" id="circle-2x-sub"></span>
-          </button>
+          <!-- Secondary unlocks: multiples of the configured duration, stacked in
+               the gutter right of the main circle (2× above, 3× below). Only
+               shown on a blocked site (the "Unlock" state). -->
+          <div class="mult-stack">
+            <button id="action-circle-2x" type="button" class="mult-btn hidden" aria-label="Unlock for 2× the duration">
+              <span class="mult-main">2×</span>
+              <span class="mult-sub" id="circle-2x-sub"></span>
+            </button>
+            <button id="action-circle-3x" type="button" class="mult-btn hidden" aria-label="Unlock for 3× the duration">
+              <span class="mult-main">3×</span>
+              <span class="mult-sub" id="circle-3x-sub"></span>
+            </button>
+          </div>
         </div>
       </section>
       <button id="open-manage" class="wide-btn">Change blocked sites</button>

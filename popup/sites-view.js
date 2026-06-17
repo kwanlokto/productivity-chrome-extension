@@ -10,8 +10,11 @@ import { formatClock, normalizeDomain, reanimate } from "./util.js";
 // DOM refs (populated in initSitesView).
 let listEl, emptyEl, formEl, inputEl;
 let actionWrap, actionCircle, ringProgress, circleMain, circleSub;
-let actionCircle2x, circle2xSub;
 let mainView, manageView, openManageBtn, backBtn;
+
+// Secondary "unlock for N×" buttons that flank the main circle, populated in
+// initSitesView as [{ btn, sub, factor }].
+let multiplierBtns = [];
 
 // Handle for the live countdown interval, so we can cancel it on re-render.
 let countdownTimer = null;
@@ -68,26 +71,30 @@ function showCircle(stateClass, main, sub, onClick) {
   circleSub.textContent = sub;
   actionCircle.onclick = onClick;
   actionCircle.disabled = onClick == null; // inert when there's no action
-  hide2xButton(); // only the unblock state re-shows it (see updateStatusCircle)
+  hideMultiplierBtns(); // only the unblock state re-shows them (updateStatusCircle)
 }
 
-/** Hide the secondary "2× unlock" button. */
-function hide2xButton() {
-  actionCircle2x.classList.add("hidden");
-  actionCircle2x.onclick = null;
+/** Hide the secondary multiplier-unlock buttons. */
+function hideMultiplierBtns() {
+  for (const { btn } of multiplierBtns) {
+    btn.classList.add("hidden");
+    btn.onclick = null;
+  }
 }
 
 /**
- * Show the secondary button that unlocks `domain` for double `minutes`.
+ * Show the multiplier buttons, each unlocking `domain` for (base × its factor).
  * @param {string} domain
  * @param {number} minutes the base (single) unlock duration
  */
-function show2xButton(domain, minutes) {
-  const doubled = minutes * 2;
-  circle2xSub.textContent = `${doubled} min`;
-  actionCircle2x.title = `Unlock for ${doubled} min (2×)`;
-  actionCircle2x.onclick = () => run(() => actions.snooze(domain, doubled));
-  actionCircle2x.classList.remove("hidden");
+function showMultiplierBtns(domain, minutes) {
+  for (const { btn, sub, factor } of multiplierBtns) {
+    const total = minutes * factor;
+    sub.textContent = `${total} min`;
+    btn.title = `Unlock for ${total} min (${factor}×)`;
+    btn.onclick = () => run(() => actions.snooze(domain, total));
+    btn.classList.remove("hidden");
+  }
 }
 
 /**
@@ -198,7 +205,7 @@ async function updateStatusCircle() {
   showCircle("is-unblock", "Unlock", `${unlockMinutes} min`, () =>
     run(() => actions.snooze(matched, unlockMinutes)),
   );
-  show2xButton(matched, unlockMinutes);
+  showMultiplierBtns(matched, unlockMinutes);
 }
 
 /* -------------------------------- Plumbing -------------------------------- */
@@ -283,8 +290,10 @@ export function initSitesView() {
   ringProgress = document.querySelector(".ring-progress");
   circleMain = document.getElementById("circle-main");
   circleSub = document.getElementById("circle-sub");
-  actionCircle2x = document.getElementById("action-circle-2x");
-  circle2xSub = document.getElementById("circle-2x-sub");
+  multiplierBtns = [
+    { btn: document.getElementById("action-circle-2x"), sub: document.getElementById("circle-2x-sub"), factor: 2 },
+    { btn: document.getElementById("action-circle-3x"), sub: document.getElementById("circle-3x-sub"), factor: 3 },
+  ];
 
   mainView = document.getElementById("sites-main");
   manageView = document.getElementById("sites-manage");

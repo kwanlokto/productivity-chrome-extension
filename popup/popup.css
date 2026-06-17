@@ -183,14 +183,20 @@ section h2 {
   letter-spacing: 0.06em;
 }
 
-/* --- Secondary 2× unlock button (sits in the gutter right of the circle) --- */
-#action-circle-2x {
+/* --- Secondary multiplier unlock buttons (stacked in the gutter right of the
+   circle: 2× above, 3× below) --- */
+.mult-stack {
   position: absolute;
   top: 50%;
-  right: 6px;
+  right: 4px;
   transform: translateY(-50%);
-  width: 66px;
-  height: 66px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.mult-btn {
+  width: 62px;
+  height: 62px;
   border-radius: 50%;
   border: none;
   padding: 0;
@@ -204,13 +210,13 @@ section h2 {
   gap: 1px;
   transition: filter 0.15s;
 }
-#action-circle-2x:hover { filter: brightness(1.5); }
-.circle-2x-main {
+.mult-btn:hover { filter: brightness(1.5); }
+.mult-main {
   font-size: 18px;
   font-weight: 700;
   line-height: 1.1;
 }
-.circle-2x-sub {
+.mult-sub {
   font-size: 9px;
   color: var(--muted);
   text-transform: uppercase;
