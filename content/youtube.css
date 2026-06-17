@@ -24,16 +24,16 @@ html.fg-hide-home ytd-browse[page-subtype="home"] #contents.ytd-rich-grid-render
    sprout is a real <img> that can't be clipped like a pseudo-element background. */
 #fg-home-msg {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  gap: 16px;
+  justify-content: center;
+  gap: 10px;
   width: 100%;
-  text-align: center;
   color: var(--yt-spec-text-secondary, #888);
   font-size: 15px;
   padding: 80px 24px;
 }
-#fg-home-msg img { width: 56px; height: 56px; }
+#fg-home-msg img { width: 28px; height: 28px; flex-shrink: 0; }
 #fg-home-msg p { max-width: 360px; margin: 0; }
 
 /* --- Hide related / recommendations / autoplay --- */
