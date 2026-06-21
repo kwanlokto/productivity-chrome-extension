@@ -6,16 +6,20 @@ distracting sites and taming YouTube's doom-scroll machinery.
 ## Features
 
 - **Site blocking** — Facebook, Instagram, and TikTok are blocked out of the box.
-  Blocked visits are redirected to a calm reminder page.
-- **Custom block list** — Add or remove any domain from the popup. Your list syncs
-  across your Chrome profile via `chrome.storage.sync`.
-- **Anti doom-scroll for YouTube** — Toggle off the features designed to keep you
-  scrolling:
-  - Hide Shorts (shelves, sidebar entry, search results)
-  - Hide the home feed (replaced with a gentle nudge to search intentionally)
-  - Hide sidebar recommendations, end-screen cards, and disable autoplay-next
-  - Hide comments
-  - Grayscale mode to make the site less dopamine-inducing
+  Blocked visits are redirected to a calm reminder page, and a one-click **Unlock**
+  lifts the block for a set number of minutes (then it re-blocks automatically).
+- **Custom block list** — Add or remove any domain from the popup, or block the site
+  you're currently on. Your list syncs across your Chrome profile via
+  `chrome.storage.sync`.
+- **YouTube focus** — Each surface is a toggle that *shows* it when on and *hides* it
+  when off; all default off, so turning on YouTube tweaks clears the page until you
+  switch back on what you actually want:
+  - **Home Feed** — replaces the home grid with a gentle nudge to search intentionally
+  - **Shorts** — hides Shorts shelves, the sidebar entry, and Shorts in search
+  - **Recommendations** — hides the watch-page sidebar and end-screen cards
+  - **Comments** — hides the comment section
+  - **Allowed channels only** — show videos only from an allow-list; opening a
+    non-allowed video shows a block screen with a "watch anyway" escape
 - **Settings tab** — Change how long "Unlock" lifts a block for, save your settings
   to a JSON file, load them back, or reset everything to defaults.
 

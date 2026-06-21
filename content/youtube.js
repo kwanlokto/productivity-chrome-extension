@@ -127,6 +127,7 @@ const ITEM_SELECTOR = [
 function filterItems() {
   const active = settings.enabled && settings.allowedChannelsOnly;
   const items = document.querySelectorAll(ITEM_SELECTOR);
+  let hiddenCount = 0;
   for (const item of items) {
     if (!active) {
       item.classList.remove("fg-edu-hidden");
@@ -135,8 +136,34 @@ function filterItems() {
     const info = getChannelInfo(item);
     // Channel not rendered yet — leave it; the observer will revisit.
     if (!info.hasInfo) continue;
-    item.classList.toggle("fg-edu-hidden", !channelAllowed(info));
+    const block = !channelAllowed(info);
+    item.classList.toggle("fg-edu-hidden", block);
+    if (block) hiddenCount++;
   }
+  applyFilterIndicator(active && hiddenCount > 0);
+}
+
+/**
+ * Show a small fixed badge while the channel allow-list is filtering items, so a
+ * feed/sidebar that looks empty has an on-page explanation.
+ * @param {boolean} show
+ */
+function applyFilterIndicator(show) {
+  let note = document.getElementById("fg-filter-note");
+  if (!show) {
+    note?.remove();
+    return;
+  }
+  if (note) return; // already shown
+  note = document.createElement("div");
+  note.id = "fg-filter-note";
+  const img = document.createElement("img");
+  img.src = chrome.runtime.getURL("popup/sprout.png");
+  img.alt = "";
+  const span = document.createElement("span");
+  span.textContent = "Focus Guard — allowed channels only";
+  note.append(img, span);
+  document.body.appendChild(note);
 }
 
 // ---------- Watch-page block overlay ----------

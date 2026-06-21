@@ -48,6 +48,11 @@ header h1 { font-size: 18px; font-weight: 700; }
   margin-bottom: -1px;
 }
 .tab:hover { color: var(--text); }
+.tab:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -3px;
+  border-radius: 4px;
+}
 .tab.is-active {
   color: var(--text);
   border-bottom-color: var(--accent);
