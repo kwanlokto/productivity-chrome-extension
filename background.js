@@ -6,6 +6,7 @@ import {
   DEFAULT_BLOCKED,
   DEFAULT_YOUTUBE,
   DEFAULT_CHANNELS,
+  normalizeDomain,
   blockRegexFor,
   blockSubstitutionFor,
 } from "./shared/core.js";
@@ -109,11 +110,11 @@ async function reblockOpenTabs(domain) {
 }
 
 // --- Auto-open countdown ---
-// We don't touch the toolbar icon. Instead the popup (which shows the in-popup
-// countdown circle) is opened 30s before the nearest snooze expires. Chrome can't
-// pin a popup open, so to keep it up through that final window we REOPEN it
-// whenever it closes (navigating/clicking the page closes it) and whenever a
-// browser window regains focus.
+// In the final 30s before a snooze expires we open the popup (which shows the
+// countdown circle) — but ONLY when the active tab is on the very site that's
+// expiring. Nagging about facebook.com while you're reading YouTube makes no
+// sense. Chrome can't pin a popup open, so we reopen it (while still on that site)
+// whenever it closes or focus/tabs change.
 
 const OPEN_AT_30_MS = 30_000;
 const OPEN30_ALARM = "open-30";
@@ -126,16 +127,19 @@ chrome.runtime.onConnect.addListener((port) => {
   popupOpen = true;
   port.onDisconnect.addListener(() => {
     popupOpen = false;
-    // Keep it up during the final window: reopen shortly after it closes.
-    setTimeout(reopenIfInWindow, 200);
+    setTimeout(reopenIfRelevant, 200); // keep it up while on the expiring site
   });
 });
 
-// When a browser window regains focus during the final window (user came back
-// from another app/window, or the first open failed), bring the popup back.
+// Reopen when the user returns to the expiring site (window focus / tab switch /
+// in-tab navigation). reopenIfRelevant() gates on the active tab's domain.
 chrome.windows.onFocusChanged.addListener((windowId) => {
   if (windowId === chrome.windows.WINDOW_ID_NONE) return;
-  reopenIfInWindow();
+  reopenIfRelevant();
+});
+chrome.tabs.onActivated.addListener(() => reopenIfRelevant());
+chrome.tabs.onUpdated.addListener((_id, changeInfo, tab) => {
+  if (tab.active && changeInfo.status === "complete") reopenIfRelevant();
 });
 
 /** Soonest expiry among active snoozes, or null if none. */
@@ -145,12 +149,34 @@ async function getNearestExpiry() {
   return expiries.length ? Math.min(...expiries) : null;
 }
 
-/** Are we inside the final-30s window of an active snooze? */
-async function withinFinalWindow() {
-  const expiry = await getNearestExpiry();
-  if (!expiry) return false;
-  const remaining = expiry - Date.now();
-  return remaining > 0 && remaining <= OPEN_AT_30_MS;
+/** The active tab's bare domain (or "" if none/unavailable). */
+async function activeTabDomain() {
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+    return tab?.url ? normalizeDomain(tab.url) : "";
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * True when a snooze is in its final 30s AND the active tab is on that snoozed
+ * domain — i.e. the moment it's actually worth nagging the user.
+ */
+async function shouldNag() {
+  const snoozed = await getSnoozed();
+  const now = Date.now();
+  const imminent = Object.entries(snoozed)
+    .filter(([, v]) => {
+      const remaining = expiryOf(v) - now;
+      return remaining > 0 && remaining <= OPEN_AT_30_MS;
+    })
+    .map(([domain]) => domain);
+  if (imminent.length === 0) return false;
+
+  const tabDomain = await activeTabDomain();
+  if (!tabDomain) return false;
+  return imminent.some((d) => tabDomain === d || tabDomain.endsWith("." + d));
 }
 
 /** Open the extension's own popup, ignoring "no active window"/unsupported errors. */
@@ -163,16 +189,15 @@ function openPopupSafely() {
   }
 }
 
-/** Reopen the popup if it's closed and we're still in the final window. */
-async function reopenIfInWindow() {
+/** Open the popup if it's closed and the active tab is the expiring site. */
+async function reopenIfRelevant() {
   if (popupOpen) return;
-  if (await withinFinalWindow()) openPopupSafely();
+  if (await shouldNag()) openPopupSafely();
 }
 
 /**
- * (Re)schedule the alarm that opens the popup 30s before the nearest snooze
- * expires. Alarms persist across worker restarts, so it fires even if the service
- * worker was asleep. If we're already inside the window, open right away.
+ * (Re)schedule the alarm that fires 30s before the nearest snooze expires. Alarms
+ * persist across worker restarts. The handler still re-checks the active tab.
  */
 async function scheduleCountdown() {
   await chrome.alarms.clear(OPEN30_ALARM);
@@ -182,14 +207,14 @@ async function scheduleCountdown() {
   if (when > Date.now()) {
     await chrome.alarms.create(OPEN30_ALARM, { when });
   } else if (expiry > Date.now()) {
-    openPopupSafely(); // already inside the window
+    reopenIfRelevant(); // already inside the window
   }
 }
 
 // --- Alarms ---
 chrome.alarms.onAlarm.addListener(async (alarm) => {
   if (alarm.name === OPEN30_ALARM) {
-    openPopupSafely(); // show the countdown as the final 30s begin
+    reopenIfRelevant(); // open only if we're on the expiring site
     return;
   }
   if (!alarm.name.startsWith("snooze:")) return;

@@ -131,30 +131,16 @@ function startCountdown(snoozeEntry) {
   countdownTimer = setInterval(tick, 250);
 }
 
-// If a snooze is within this window of expiring, surface its countdown even when
-// the user is on a different tab (so the auto-opened popup shows it).
-const IMMINENT_MS = 31_000;
-
 /**
- * Which snooze (if any) the circle should count down: the current tab's snooze,
- * or — when one is about to expire — the soonest-expiring snooze.
+ * Which snooze the circle counts down: only the current tab's own snooze. (The
+ * background only auto-opens the popup while you're on the expiring site, so the
+ * popup always reflects the tab you're looking at — no cross-tab countdowns.)
  * @param {string | null} matched the current tab's blocked-list match
  * @param {Record<string, unknown>} snoozed active snooze map
  * @returns {string | null} the domain to count down, or null
  */
 function pickCountdownDomain(matched, snoozed) {
-  if (matched && snoozed[matched]) return matched; // current tab is snoozed
-
-  let nearest = null;
-  let nearestExpiry = Infinity;
-  for (const [domain, entry] of Object.entries(snoozed)) {
-    const e = expiryOf(entry);
-    if (e < nearestExpiry) {
-      nearestExpiry = e;
-      nearest = domain;
-    }
-  }
-  return nearest && nearestExpiry - Date.now() <= IMMINENT_MS ? nearest : null;
+  return matched && snoozed[matched] ? matched : null;
 }
 
 /**
