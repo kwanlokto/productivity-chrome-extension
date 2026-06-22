@@ -1,4 +1,4 @@
-name: Build extension zip
+name: Build extension
 
 on:
   push:
@@ -20,18 +20,36 @@ jobs:
         id: meta
         run: echo "version=$(jq -r .version manifest.json)" >> "$GITHUB_OUTPUT"
 
-      - name: Build zip
+      - name: Stage extension files
         run: |
-          mkdir -p dist
-          zip -r "dist/focus-guard-v${{ steps.meta.outputs.version }}.zip" . \
-            -x ".git/*" ".github/*" "dist/*" "*.zip" "README.md"
+          mkdir -p build
+          rsync -a \
+            --exclude='.git/' \
+            --exclude='.github/' \
+            --exclude='dist/' \
+            --exclude='build/' \
+            --exclude='README.md' \
+            --exclude='*.zip' \
+            ./ build/
 
-      - name: Upload build artifact
+      # Upload the UNPACKED extension. GitHub always wraps an artifact in its own
+      # zip, so uploading a pre-made .zip here would double-zip it — and Chrome
+      # can't load a .zip at all. Uploading the raw files means one extract gives
+      # a folder you can point "Load unpacked" straight at.
+      - name: Upload unpacked extension
         uses: actions/upload-artifact@v4
         with:
           name: focus-guard-v${{ steps.meta.outputs.version }}
-          path: dist/*.zip
+          path: build/
           if-no-files-found: error
+
+      # A single .zip is still the right format for a release asset (and for
+      # uploading to the Chrome Web Store), so build one for tagged releases.
+      - name: Build release zip
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          mkdir -p dist
+          cd build && zip -r "../dist/focus-guard-v${{ steps.meta.outputs.version }}.zip" .
 
       - name: Attach zip to release
         if: startsWith(github.ref, 'refs/tags/')

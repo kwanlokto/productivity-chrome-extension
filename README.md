@@ -58,9 +58,20 @@ snoozes live in `chrome.storage.local` under `snoozed`
 
 ## Install (developer / unpacked)
 
+Chrome can only load an extension from an **unpacked folder** — it can't load a
+`.zip` directly, so you always extract first.
+
+**From a build:** download the `focus-guard-v<version>` artifact from the
+[Actions](../../actions) run (or the `.zip` attached to a
+[release](../../releases)) and extract it once. You'll get a folder containing
+`manifest.json`.
+
+Then:
+
 1. Open `chrome://extensions`.
 2. Enable **Developer mode** (top-right).
-3. Click **Load unpacked** and select this folder.
+3. Click **Load unpacked** and select the extracted folder (the one with
+   `manifest.json` in it — or just this repo folder if you cloned it).
 4. Pin **Focus Guard** and click the icon to manage your block list and YouTube settings.
 
 ## Publish to the Chrome Web Store
