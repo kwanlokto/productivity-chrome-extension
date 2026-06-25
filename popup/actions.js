@@ -2,7 +2,13 @@
 // navigation into one operation. These contain no DOM code — the views call them
 // and then re-render.
 
-import { getDomains, setDomains, addSnooze, removeSnooze } from "./storage.js";
+import {
+  getDomains,
+  setDomains,
+  addSnooze,
+  removeSnooze,
+  extendSnooze as extendSnoozeStorage,
+} from "./storage.js";
 import { addBlockRule, removeBlockRule } from "./rules.js";
 import {
   getActiveTab,
@@ -81,6 +87,21 @@ export async function snooze(domain, minutes) {
     await chrome.alarms.create("snooze:" + domain, { delayInMinutes: minutes });
   } catch (e) {
     console.warn("[Focus Guard] couldn't set re-block alarm:", e);
+  }
+}
+
+/**
+ * Add time to an in-progress unlock and push back its automatic re-block.
+ * @param {string} domain
+ * @param {number} minutes
+ */
+export async function extendSnooze(domain, minutes) {
+  const newExpiry = await extendSnoozeStorage(domain, minutes * 60 * 1000);
+  if (newExpiry == null) return; // not snoozed (e.g. it just expired)
+  try {
+    await chrome.alarms.create("snooze:" + domain, { when: newExpiry });
+  } catch (e) {
+    console.warn("[Focus Guard] couldn't reschedule re-block alarm:", e);
   }
 }
 

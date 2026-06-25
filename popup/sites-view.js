@@ -10,7 +10,7 @@ import { formatClock, normalizeDomain, reanimate } from "./util.js";
 // DOM refs (populated in initSitesView).
 let listEl, emptyEl, formEl, inputEl;
 let actionWrap, actionCircle, ringProgress, circleMain, circleSub;
-let mainView, manageView, openManageBtn, backBtn;
+let mainView, manageView, openManageBtn, backBtn, addMinuteBtn;
 
 // Secondary "unlock for N×" buttons that flank the main circle, populated in
 // initSitesView as [{ btn, sub, factor }].
@@ -72,6 +72,9 @@ function showCircle(stateClass, main, sub, onClick) {
   actionCircle.onclick = onClick;
   actionCircle.disabled = onClick == null; // inert when there's no action
   hideMultiplierBtns(); // only the unblock state re-shows them (updateStatusCircle)
+  // Only the countdown state re-shows "+1 minute".
+  addMinuteBtn.classList.add("hidden");
+  addMinuteBtn.onclick = null;
 }
 
 /** Hide the secondary multiplier-unlock buttons. */
@@ -172,6 +175,9 @@ async function updateStatusCircle() {
       run(() => actions.unsnooze(countdownDomain)),
     );
     startCountdown(snoozed[countdownDomain]);
+    // Let the user buy another minute on the running unlock.
+    addMinuteBtn.classList.remove("hidden");
+    addMinuteBtn.onclick = () => run(() => actions.extendSnooze(countdownDomain, 1));
     return;
   }
 
@@ -285,6 +291,7 @@ export function initSitesView() {
   manageView = document.getElementById("sites-manage");
   openManageBtn = document.getElementById("open-manage");
   backBtn = document.getElementById("back-to-main");
+  addMinuteBtn = document.getElementById("add-minute-btn");
 
   bindManageNav();
   bindAddForm();

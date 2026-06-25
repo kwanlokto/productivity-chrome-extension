@@ -234,6 +234,23 @@ export async function addSnooze(domain, start, expiry) {
 }
 
 /**
+ * Push a domain's snooze expiry out by `addMs`, keeping its original start.
+ * @param {string} domain
+ * @param {number} addMs milliseconds to add
+ * @returns {Promise<number | null>} the new expiry, or null if not snoozed
+ */
+export async function extendSnooze(domain, addMs) {
+  const map = await readSnoozeMap();
+  const entry = map[domain];
+  if (!entry) return null;
+  const start = typeof entry === "object" && entry.start ? entry.start : Date.now();
+  const expiry = expiryOf(entry) + addMs;
+  map[domain] = { start, expiry };
+  await chrome.storage.local.set({ [SNOOZE_KEY]: map });
+  return expiry;
+}
+
+/**
  * Clear a domain's snooze.
  * @param {string} domain
  */
