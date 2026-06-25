@@ -4,7 +4,14 @@ import * as actions from "./actions.js";
 
 import { DEFAULT_UNLOCK_MINUTES, RING_CIRCUMFERENCE } from "./config.js";
 import { domainMatchesBlocked, getCurrentTabDomain } from "./tabs.js";
-import { expiryOf, getActiveSnooze, getDomains, getUnlockMinutes } from "./storage.js";
+import {
+  capOf,
+  expiryOf,
+  getActiveSnooze,
+  getDomains,
+  getUnlockMinutes,
+  startOf,
+} from "./storage.js";
 import { formatClock, normalizeDomain, reanimate } from "./util.js";
 
 // DOM refs (populated in initSitesView).
@@ -109,15 +116,11 @@ function startCountdown(snoozeEntry) {
   ringProgress.classList.remove("hidden");
 
   const expiry = expiryOf(snoozeEntry);
-  const start =
-    typeof snoozeEntry === "object" && snoozeEntry.start
-      ? snoozeEntry.start
-      : expiry - unlockMinutes * 60 * 1000;
+  const start = startOf(snoozeEntry) ?? expiry - unlockMinutes * 60 * 1000;
   const total = Math.max(1, expiry - start);
   // "+1 minute" can top up only until the time remaining reaches the original
   // granted duration (the cap stored with the snooze).
-  const cap =
-    typeof snoozeEntry === "object" && snoozeEntry.cap ? snoozeEntry.cap : total;
+  const cap = capOf(snoozeEntry);
 
   const tick = () => {
     const remaining = expiry - Date.now();

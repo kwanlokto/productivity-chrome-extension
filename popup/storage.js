@@ -201,6 +201,15 @@ export function expiryOf(entry) {
 }
 
 /**
+ * Read a snooze entry's start time, or null for legacy bare-timestamp entries.
+ * @param {number | { start?: number, expiry: number }} entry
+ * @returns {number | null}
+ */
+export function startOf(entry) {
+  return typeof entry === "object" && entry.start ? entry.start : null;
+}
+
+/**
  * Read the raw snooze map (may include expired entries).
  * @returns {Promise<Record<string, { start: number, expiry: number }>>}
  */
@@ -227,10 +236,9 @@ export async function getActiveSnooze() {
  * @param {{ start?: number, expiry: number, cap?: number } | number} entry
  * @returns {number} ms
  */
-function capOf(entry) {
+export function capOf(entry) {
   if (typeof entry === "object" && entry.cap) return entry.cap;
-  const start = typeof entry === "object" && entry.start ? entry.start : 0;
-  return expiryOf(entry) - start;
+  return expiryOf(entry) - (startOf(entry) ?? 0);
 }
 
 /**
@@ -260,7 +268,7 @@ export async function extendSnooze(domain, addMs) {
   if (!entry) return null;
 
   const now = Date.now();
-  const start = typeof entry === "object" && entry.start ? entry.start : now;
+  const start = startOf(entry) ?? now;
   const cap = capOf(entry);
   const current = expiryOf(entry);
   // Add the time, clamp remaining to the cap, and never shorten.

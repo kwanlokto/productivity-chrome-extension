@@ -19,6 +19,17 @@ let allowedChannels = [];
 // Per-session "watch anyway" bypass — video ids the user chose to watch.
 const bypassed = new Set();
 
+// The bundled sprout image as a web-accessible extension URL.
+const SPROUT_URL = chrome.runtime.getURL("popup/sprout.png");
+
+/** A fresh sprout <img> for the injected message/badge elements. */
+function sproutImg() {
+  const img = document.createElement("img");
+  img.src = SPROUT_URL;
+  img.alt = "";
+  return img;
+}
+
 // ---------- CSS-class toggles ----------
 
 /** Apply each feature's hide-classes when tweaks are on and the feature is OFF. */
@@ -49,12 +60,9 @@ function applyHomeMessage() {
   existing?.remove();
   const msg = document.createElement("div");
   msg.id = "fg-home-msg";
-  const img = document.createElement("img");
-  img.src = chrome.runtime.getURL("popup/sprout.png");
-  img.alt = "";
   const p = document.createElement("p");
   p.textContent = "Home feed hidden by Focus Guard. Search for what you actually came for.";
-  msg.append(img, p);
+  msg.append(sproutImg(), p);
   home.appendChild(msg);
 }
 
@@ -157,12 +165,9 @@ function applyFilterIndicator(show) {
   if (note) return; // already shown
   note = document.createElement("div");
   note.id = "fg-filter-note";
-  const img = document.createElement("img");
-  img.src = chrome.runtime.getURL("popup/sprout.png");
-  img.alt = "";
   const span = document.createElement("span");
   span.textContent = "Focus Guard — allowed channels only";
-  note.append(img, span);
+  note.append(sproutImg(), span);
   document.body.appendChild(note);
 }
 
