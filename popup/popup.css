@@ -216,6 +216,9 @@ section h2 {
   transition: filter 0.15s;
 }
 .mult-btn:hover { filter: brightness(1.5); }
+/* "+1 minute" matches the amber countdown state instead of the red unblock disc. */
+#add-minute-btn { background: rgba(251, 191, 36, 0.18); }
+#add-minute-btn:disabled { opacity: 0.35; cursor: default; filter: none; }
 .mult-main {
   font-size: 18px;
   font-weight: 700;

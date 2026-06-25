@@ -222,19 +222,34 @@ export async function getActiveSnooze() {
 }
 
 /**
+ * Read a snooze entry's original granted duration (its cap), falling back to its
+ * current length for older entries that didn't store one.
+ * @param {{ start?: number, expiry: number, cap?: number } | number} entry
+ * @returns {number} ms
+ */
+function capOf(entry) {
+  if (typeof entry === "object" && entry.cap) return entry.cap;
+  const start = typeof entry === "object" && entry.start ? entry.start : 0;
+  return expiryOf(entry) - start;
+}
+
+/**
  * Record a snooze for a domain.
  * @param {string} domain
  * @param {number} start  ms timestamp the snooze began
  * @param {number} expiry ms timestamp the snooze ends
+ * @param {number} cap    the granted duration in ms (used to cap "+1 minute")
  */
-export async function addSnooze(domain, start, expiry) {
+export async function addSnooze(domain, start, expiry, cap) {
   const map = await readSnoozeMap();
-  map[domain] = { start, expiry };
+  map[domain] = { start, expiry, cap };
   await chrome.storage.local.set({ [SNOOZE_KEY]: map });
 }
 
 /**
- * Push a domain's snooze expiry out by `addMs`, keeping its original start.
+ * Add time to a domain's snooze, but never let the time *remaining* exceed the
+ * snooze's original granted duration (so "+1 minute" tops up without ever giving
+ * more than the original unlock).
  * @param {string} domain
  * @param {number} addMs milliseconds to add
  * @returns {Promise<number | null>} the new expiry, or null if not snoozed
@@ -243,9 +258,15 @@ export async function extendSnooze(domain, addMs) {
   const map = await readSnoozeMap();
   const entry = map[domain];
   if (!entry) return null;
-  const start = typeof entry === "object" && entry.start ? entry.start : Date.now();
-  const expiry = expiryOf(entry) + addMs;
-  map[domain] = { start, expiry };
+
+  const now = Date.now();
+  const start = typeof entry === "object" && entry.start ? entry.start : now;
+  const cap = capOf(entry);
+  const current = expiryOf(entry);
+  // Add the time, clamp remaining to the cap, and never shorten.
+  const expiry = Math.max(current, Math.min(current + addMs, now + cap));
+
+  map[domain] = { start, expiry, cap };
   await chrome.storage.local.set({ [SNOOZE_KEY]: map });
   return expiry;
 }

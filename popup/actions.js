@@ -74,8 +74,9 @@ export async function blockCurrentSite(domain) {
  */
 export async function snooze(domain, minutes) {
   const start = Date.now();
-  const expiry = start + minutes * 60 * 1000;
-  await addSnooze(domain, start, expiry);
+  const durationMs = minutes * 60 * 1000;
+  const expiry = start + durationMs;
+  await addSnooze(domain, start, expiry, durationMs); // cap "+1 min" at this duration
 
   // Drop the rule, THEN navigate — so the load isn't redirected back.
   await removeBlockRule(domain);

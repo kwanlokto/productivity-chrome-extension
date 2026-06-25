@@ -114,6 +114,10 @@ function startCountdown(snoozeEntry) {
       ? snoozeEntry.start
       : expiry - unlockMinutes * 60 * 1000;
   const total = Math.max(1, expiry - start);
+  // "+1 minute" can top up only until the time remaining reaches the original
+  // granted duration (the cap stored with the snooze).
+  const cap =
+    typeof snoozeEntry === "object" && snoozeEntry.cap ? snoozeEntry.cap : total;
 
   const tick = () => {
     const remaining = expiry - Date.now();
@@ -129,6 +133,10 @@ function startCountdown(snoozeEntry) {
     ringProgress.style.strokeDashoffset = String(
       RING_CIRCUMFERENCE * (1 - fraction),
     );
+    // Disable "+1" once we're already at the cap (can't add any more).
+    if (!addMinuteBtn.classList.contains("hidden")) {
+      addMinuteBtn.disabled = remaining >= cap - 1500;
+    }
   };
   tick();
   countdownTimer = setInterval(tick, 250);
@@ -174,10 +182,11 @@ async function updateStatusCircle() {
     showCircle("is-countdown", "", "left", () =>
       run(() => actions.unsnooze(countdownDomain)),
     );
-    startCountdown(snoozed[countdownDomain]);
-    // Let the user buy another minute on the running unlock.
+    // Top up the running unlock by a minute (capped at its original duration).
     addMinuteBtn.classList.remove("hidden");
+    addMinuteBtn.disabled = false;
     addMinuteBtn.onclick = () => run(() => actions.extendSnooze(countdownDomain, 1));
+    startCountdown(snoozed[countdownDomain]); // first tick sets the disabled state
     return;
   }
 
