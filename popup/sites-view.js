@@ -10,7 +10,6 @@ import {
   getActiveSnooze,
   getDomains,
   getUnlockMinutes,
-  startOf,
 } from "./storage.js";
 import { formatClock, normalizeDomain, reanimate } from "./util.js";
 
@@ -116,11 +115,10 @@ function startCountdown(snoozeEntry) {
   ringProgress.classList.remove("hidden");
 
   const expiry = expiryOf(snoozeEntry);
-  const start = startOf(snoozeEntry) ?? expiry - unlockMinutes * 60 * 1000;
-  const total = Math.max(1, expiry - start);
-  // "+1 minute" can top up only until the time remaining reaches the original
-  // granted duration (the cap stored with the snooze).
-  const cap = capOf(snoozeEntry);
+  // The ring represents time remaining out of the snooze's original granted
+  // duration (the cap), so it always matches the clock — including after
+  // "+1 minute" pushes the expiry out (which leaves the cap unchanged).
+  const cap = Math.max(1, capOf(snoozeEntry));
 
   const tick = () => {
     const remaining = expiry - Date.now();
@@ -131,8 +129,8 @@ function startCountdown(snoozeEntry) {
       return;
     }
     circleMain.textContent = formatClock(remaining);
-    // Yellow ring = fraction of time remaining, so it shrinks as it counts down.
-    const fraction = Math.max(0, Math.min(1, remaining / total));
+    // Yellow ring = fraction of the original duration remaining; shrinks to empty.
+    const fraction = Math.max(0, Math.min(1, remaining / cap));
     ringProgress.style.strokeDashoffset = String(
       RING_CIRCUMFERENCE * (1 - fraction),
     );
