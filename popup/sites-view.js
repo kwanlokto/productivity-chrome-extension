@@ -2,7 +2,13 @@
 
 import * as actions from "./actions.js";
 
-import { DEFAULT_UNLOCK_MINUTES, RING_CIRCUMFERENCE } from "./config.js";
+import {
+  DEFAULT_UNLOCK_MINUTES,
+  DEFAULT_PAUSE_MINUTES,
+  MIN_UNLOCK_MINUTES,
+  MAX_UNLOCK_MINUTES,
+  RING_CIRCUMFERENCE,
+} from "./config.js";
 import { domainMatchesBlocked, getCurrentTabDomain } from "./tabs.js";
 import {
   capOf,
@@ -12,12 +18,13 @@ import {
   getPausedUntil,
   getUnlockMinutes,
 } from "./storage.js";
-import { formatClock, normalizeDomain, reanimate } from "./util.js";
+import { clampMinutes, formatClock, normalizeDomain, reanimate } from "./util.js";
 
 // DOM refs (populated in initSitesView).
 let listEl, emptyEl, formEl, inputEl;
 let actionWrap, actionCircle, ringProgress, circleMain, circleSub;
 let mainView, manageView, openManageBtn, backBtn, addMinuteBtn;
+let pauseControls, pauseInput, pauseBtn, resumeBtn;
 
 // Secondary "unlock for N×" buttons that flank the main circle, populated in
 // initSitesView as [{ btn, sub, factor }].
@@ -145,6 +152,40 @@ function startCountdown(snoozeEntry) {
 }
 
 /**
+ * Drive the inert circle's "m:ss" label while the whole extension is paused,
+ * re-rendering normally once the pause elapses. Reuses countdownTimer (paused and
+ * snoozed states are mutually exclusive).
+ * @param {number} until pause-end timestamp
+ */
+function startPauseCountdown(until) {
+  const tick = () => {
+    const remaining = until - Date.now();
+    if (remaining <= 0) {
+      clearInterval(countdownTimer);
+      countdownTimer = null;
+      updateStatusCircle(); // pause ended — re-render
+      return;
+    }
+    circleMain.textContent = formatClock(remaining);
+  };
+  tick();
+  countdownTimer = setInterval(tick, 250);
+}
+
+/**
+ * Toggle the pause bar between its two states: the "Pause for N min" controls
+ * (not paused) and the "Resume now" button (paused).
+ * @param {boolean} paused
+ */
+function renderPauseBar(paused) {
+  pauseControls.classList.toggle("hidden", paused);
+  resumeBtn.classList.toggle("hidden", !paused);
+  if (!paused && document.activeElement !== pauseInput) {
+    pauseInput.value = String(DEFAULT_PAUSE_MINUTES);
+  }
+}
+
+/**
  * Which snooze the circle counts down: only the current tab's own snooze. (The
  * background only auto-opens the popup while you're on the expiring site, so the
  * popup always reflects the tab you're looking at — no cross-tab countdowns.)
@@ -177,12 +218,15 @@ async function updateStatusCircle() {
   ]);
   unlockMinutes = minutes;
 
-  // Whole extension paused — nothing is being blocked; show an inert "Paused"
-  // circle that points the user to Settings to resume.
+  // Whole extension paused — nothing is blocked. The circle becomes an inert
+  // live countdown; the pause bar below swaps to a "Resume now" button.
   if (pausedUntil) {
-    showCircle("is-disabled", "Paused", "see Settings", null);
+    renderPauseBar(true);
+    showCircle("is-disabled", "", "paused", null);
+    startPauseCountdown(pausedUntil);
     return;
   }
+  renderPauseBar(false);
 
   const blockable = tabDomain && tabDomain.includes(".");
   const matched = blockable ? domainMatchesBlocked(tabDomain, domains) : null;
@@ -278,6 +322,19 @@ function bindStorageSync() {
   });
 }
 
+/** Wire the global pause / resume controls on the Main tab. */
+function bindPause() {
+  pauseBtn.addEventListener("click", () => {
+    const minutes = clampMinutes(pauseInput.value, MIN_UNLOCK_MINUTES, MAX_UNLOCK_MINUTES);
+    if (minutes == null) {
+      pauseInput.value = String(DEFAULT_PAUSE_MINUTES);
+      return;
+    }
+    run(() => actions.pauseExtension(minutes));
+  });
+  resumeBtn.addEventListener("click", () => run(() => actions.resumeExtension()));
+}
+
 /** Wire up the add-domain form. */
 function bindAddForm() {
   formEl.addEventListener("submit", (e) => {
@@ -316,8 +373,14 @@ export function initSitesView() {
   backBtn = document.getElementById("back-to-main");
   addMinuteBtn = document.getElementById("add-minute-btn");
 
+  pauseControls = document.getElementById("pause-controls");
+  pauseInput = document.getElementById("pause-input");
+  pauseBtn = document.getElementById("pause-btn");
+  resumeBtn = document.getElementById("resume-btn");
+
   bindManageNav();
   bindAddForm();
+  bindPause();
   bindStorageSync();
   refresh();
 }

@@ -53,6 +53,19 @@
           </div>
         </div>
       </section>
+
+      <!-- Global pause: suspends all blocking + YouTube tweaks for a set time.
+           While paused the circle above shows the live countdown. -->
+      <div id="pause-bar">
+        <div id="pause-controls" class="pause-row">
+          <label class="pause-label" for="pause-input">Pause for
+            <input id="pause-input" type="number" min="1" max="1440" step="1" inputmode="numeric" aria-label="Pause duration in minutes" /> min
+          </label>
+          <button id="pause-btn" type="button" class="pause-btn">Pause</button>
+        </div>
+        <button id="resume-btn" type="button" class="wide-btn hidden">Resume now</button>
+      </div>
+
       <button id="open-manage" class="wide-btn">Change blocked sites</button>
     </div>
 
@@ -141,25 +154,6 @@
   </div>
 
   <div class="panel" id="panel-settings" data-panel="settings" role="tabpanel" aria-labelledby="tab-settings">
-
-    <section>
-      <div class="section-head">
-        <h2>Pause Focus Guard</h2>
-      </div>
-      <!-- Not paused: choose a duration and pause everything -->
-      <div id="pause-controls">
-        <div class="setting-row">
-          <span>Pause for (minutes)</span>
-          <input id="pause-input" type="number" min="1" max="1440" step="1" inputmode="numeric" aria-label="Pause duration in minutes" />
-        </div>
-        <button id="pause-btn" type="button" class="wide-btn">Pause everything</button>
-      </div>
-      <!-- Paused: show remaining time + resume -->
-      <div id="pause-status" class="hidden">
-        <p class="pause-line">Paused — <span id="pause-remaining">0:00</span> left</p>
-        <button id="resume-btn" type="button" class="wide-btn">Resume now</button>
-      </div>
-    </section>
 
     <section>
       <div class="section-head">

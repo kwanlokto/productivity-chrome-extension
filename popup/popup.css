@@ -250,6 +250,47 @@ section h2 {
 .wide-btn:disabled { opacity: 0.4; cursor: default; }
 .wide-btn:disabled:hover { border-color: var(--surface-2); }
 
+/* --- Global pause bar (Main tab, under the circle) --- */
+#pause-bar { margin-top: 16px; }
+.pause-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.pause-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+#pause-input {
+  width: 52px;
+  background: var(--surface);
+  border: 1px solid var(--surface-2);
+  border-radius: 8px;
+  padding: 6px 8px;
+  color: var(--text);
+  font-size: 13px;
+  text-align: center;
+  color-scheme: dark; /* dark-mode native stepper, matching #unlock-input */
+}
+#pause-input:focus { outline: none; border-color: var(--accent); }
+.pause-btn {
+  background: var(--surface);
+  border: 1px solid var(--surface-2);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 7px 16px;
+  cursor: pointer;
+}
+.pause-btn:hover { border-color: var(--accent); }
+/* When paused, the "Resume now" button stands alone — drop the wide-btn top gap. */
+#resume-btn { margin-top: 0; }
+
 .back-link {
   display: inline-flex;
   align-items: center;
@@ -389,10 +430,6 @@ section h2 {
 .settings-status { font-size: 12px; min-height: 16px; margin-top: 6px; }
 .settings-status.is-ok { color: #4ade80; }
 .settings-status.is-error { color: var(--danger); }
-
-/* Paused state: remaining-time line above the "Resume now" button. */
-.pause-line { font-size: 14px; margin: 0 0 2px; }
-.pause-line span { color: var(--accent); font-variant-numeric: tabular-nums; font-weight: 600; }
 
 .toggle {
   display: flex;
