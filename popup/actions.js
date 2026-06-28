@@ -8,7 +8,12 @@ import {
   addSnooze,
   removeSnooze,
   extendSnooze as extendSnoozeStorage,
+  setPause,
+  clearPause,
 } from "./storage.js";
+
+/** Alarm name the background uses to end a global pause. */
+const PAUSE_ALARM = "fg-pause-end";
 import { addBlockRule, removeBlockRule } from "./rules.js";
 import {
   getActiveTab,
@@ -116,4 +121,24 @@ export async function unsnooze(domain) {
   await chrome.alarms.clear("snooze:" + domain);
   await addBlockRule(domain);
   await reloadActiveTab();
+}
+
+/**
+ * Pause the entire extension (blocking + YouTube tweaks) for `minutes`, scheduling
+ * the automatic resume. The background worker reacts to the stored pause state.
+ * @param {number} minutes
+ */
+export async function pauseExtension(minutes) {
+  const until = await setPause(minutes);
+  try {
+    await chrome.alarms.create(PAUSE_ALARM, { when: until });
+  } catch (e) {
+    console.warn("[Focus Guard] couldn't set resume alarm:", e);
+  }
+}
+
+/** End the global pause now and cancel its scheduled resume. */
+export async function resumeExtension() {
+  await clearPause();
+  await chrome.alarms.clear(PAUSE_ALARM);
 }

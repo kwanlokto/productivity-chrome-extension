@@ -9,6 +9,7 @@ import {
   expiryOf,
   getActiveSnooze,
   getDomains,
+  getPausedUntil,
   getUnlockMinutes,
 } from "./storage.js";
 import { formatClock, normalizeDomain, reanimate } from "./util.js";
@@ -167,13 +168,21 @@ async function updateStatusCircle() {
   }
   ringProgress.classList.add("hidden");
 
-  const [tabDomain, domains, snoozed, minutes] = await Promise.all([
+  const [tabDomain, domains, snoozed, minutes, pausedUntil] = await Promise.all([
     getCurrentTabDomain(),
     getDomains(),
     getActiveSnooze(),
     getUnlockMinutes(),
+    getPausedUntil(),
   ]);
   unlockMinutes = minutes;
+
+  // Whole extension paused — nothing is being blocked; show an inert "Paused"
+  // circle that points the user to Settings to resume.
+  if (pausedUntil) {
+    showCircle("is-disabled", "Paused", "see Settings", null);
+    return;
+  }
 
   const blockable = tabDomain && tabDomain.includes(".");
   const matched = blockable ? domainMatchesBlocked(tabDomain, domains) : null;
@@ -260,6 +269,10 @@ function bindManageNav() {
 function bindStorageSync() {
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area === "sync" && (changes.unlockMinutes || changes.blockedDomains)) {
+      refresh();
+    }
+    // Pausing/resuming the whole extension flips the circle to/from "Paused".
+    if (area === "local" && changes.pausedUntil) {
       refresh();
     }
   });

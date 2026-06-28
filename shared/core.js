@@ -36,6 +36,9 @@ export const DEFAULT_UNLOCK_MINUTES = 5;
 export const MIN_UNLOCK_MINUTES = 1;
 export const MAX_UNLOCK_MINUTES = 1440;
 
+/** Default duration suggested when pausing the whole extension, in minutes. */
+export const DEFAULT_PAUSE_MINUTES = 15;
+
 /* -------------------------------- Helpers --------------------------------- */
 
 /**

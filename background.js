@@ -75,12 +75,23 @@ function buildRules(domains, snoozed) {
     }));
 }
 
+/** Is the whole extension currently paused? */
+async function isPaused() {
+  const { pausedUntil } = await chrome.storage.local.get("pausedUntil");
+  return Boolean(pausedUntil && pausedUntil > Date.now());
+}
+
 /** Replace all dynamic rules with a fresh set built from current state. */
 async function doSyncRules() {
-  const { blockedDomains = DEFAULT_BLOCKED } = await chrome.storage.sync.get("blockedDomains");
-  const snoozed = await getSnoozed();
   const existing = await chrome.declarativeNetRequest.getDynamicRules();
   const removeRuleIds = existing.map((r) => r.id);
+  // While paused, block nothing at all.
+  if (await isPaused()) {
+    await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds, addRules: [] });
+    return;
+  }
+  const { blockedDomains = DEFAULT_BLOCKED } = await chrome.storage.sync.get("blockedDomains");
+  const snoozed = await getSnoozed();
   const addRules = buildRules(blockedDomains, snoozed);
   await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds, addRules });
 }
@@ -106,6 +117,33 @@ async function reblockOpenTabs(domain) {
   });
   for (const tab of tabs) {
     if (tab.id != null) chrome.tabs.reload(tab.id);
+  }
+}
+
+/** Reblock open tabs for every blocked (non-snoozed) domain — used after a pause. */
+async function reblockAllOpenTabs() {
+  const { blockedDomains = DEFAULT_BLOCKED } = await chrome.storage.sync.get("blockedDomains");
+  const snoozed = await getSnoozed();
+  for (const domain of blockedDomains) {
+    if (!snoozed[domain]) await reblockOpenTabs(domain);
+  }
+}
+
+/**
+ * Send every tab currently sitting on our blocked page back to the real site it
+ * came from — used when pausing, so already-blocked tabs unblock immediately
+ * instead of waiting for the user to navigate. The original URL is everything
+ * after "url=" (it may itself contain "?"/"&"), mirroring getBlockedOriginalUrl.
+ */
+async function releaseAllBlockedTabs() {
+  const prefix = chrome.runtime.getURL("blocked.html");
+  const tabs = await chrome.tabs.query({});
+  for (const tab of tabs) {
+    if (tab.id == null || !tab.url || !tab.url.startsWith(prefix)) continue;
+    const i = tab.url.indexOf("url=");
+    if (i < 0) continue;
+    const original = tab.url.slice(i + "url=".length);
+    if (original) chrome.tabs.update(tab.id, { url: original });
   }
 }
 
@@ -217,6 +255,11 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     reopenIfRelevant(); // open only if we're on the expiring site
     return;
   }
+  if (alarm.name === "fg-pause-end") {
+    // Resume: clearing the pause triggers the storage listener below.
+    await chrome.storage.local.remove("pausedUntil");
+    return;
+  }
   if (!alarm.name.startsWith("snooze:")) return;
 
   // Snooze expired: restore blocking.
@@ -241,13 +284,24 @@ chrome.runtime.onInstalled.addListener(async () => {
   await scheduleCountdown();
 });
 
-chrome.storage.onChanged.addListener((changes, area) => {
+chrome.storage.onChanged.addListener(async (changes, area) => {
   if (area === "sync" && changes.blockedDomains) syncRules();
   // Snooze changes (re)schedule the auto-open alarms. NOTE: we deliberately do
   // NOT re-sync the blocking rules here — the popup owns rule add/remove for
   // snooze/unsnooze directly, and re-syncing would race with it (re-blocking a
   // site the popup just unblocked). Scheduling the alarms touches no rules.
   if (area === "local" && changes.snoozed) scheduleCountdown();
+
+  // Pause/resume: rebuild rules (empty while paused, restored on resume). When
+  // pausing, immediately release tabs stuck on the blocked page; when resuming,
+  // bounce open tabs on blocked sites back to the blocked page.
+  if (area === "local" && changes.pausedUntil) {
+    await syncRules();
+    const stillPaused =
+      changes.pausedUntil.newValue && changes.pausedUntil.newValue > Date.now();
+    if (stillPaused) await releaseAllBlockedTabs();
+    else await reblockAllOpenTabs();
+  }
 });
 
 chrome.runtime.onStartup.addListener(async () => {

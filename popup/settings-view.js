@@ -1,17 +1,25 @@
 // "Settings" tab: configurable unlock duration, backup/restore to a file, and
 // reset-to-defaults.
 
-import { MAX_UNLOCK_MINUTES, MIN_UNLOCK_MINUTES } from "./config.js";
-import { clampMinutes } from "./util.js";
+import {
+  MAX_UNLOCK_MINUTES,
+  MIN_UNLOCK_MINUTES,
+  DEFAULT_PAUSE_MINUTES,
+} from "./config.js";
+import { clampMinutes, formatClock } from "./util.js";
 import {
   getUnlockMinutes,
   setUnlockMinutes,
+  getPausedUntil,
   exportSettings,
   importSettings,
   resetSettings,
 } from "./storage.js";
+import { pauseExtension, resumeExtension } from "./actions.js";
 
 let unlockInput, exportBtn, importBtn, importFile, resetBtn, statusEl;
+let pauseInput, pauseBtn, pauseControls, pauseStatus, pauseRemaining, resumeBtn;
+let pauseTicker = null;
 
 // The "Reset" button is a two-step confirm: first click arms it, second resets.
 let resetArmed = false;
@@ -151,6 +159,64 @@ function bindReset() {
   });
 }
 
+/* ---------------------------- Pause (whole extension) --------------------- */
+
+function stopPauseTicker() {
+  clearInterval(pauseTicker);
+  pauseTicker = null;
+}
+
+/** Show either the pause controls or the paused status, with a live countdown. */
+async function renderPause() {
+  stopPauseTicker();
+  const until = await getPausedUntil();
+
+  if (!until) {
+    pauseControls.classList.remove("hidden");
+    pauseStatus.classList.add("hidden");
+    pauseInput.value = String(DEFAULT_PAUSE_MINUTES);
+    return;
+  }
+
+  pauseControls.classList.add("hidden");
+  pauseStatus.classList.remove("hidden");
+  const tick = () => {
+    const remaining = until - Date.now();
+    if (remaining <= 0) {
+      renderPause(); // pause ended — back to controls
+      return;
+    }
+    pauseRemaining.textContent = formatClock(remaining);
+  };
+  tick();
+  pauseTicker = setInterval(tick, 250);
+}
+
+function bindPause() {
+  pauseBtn.addEventListener("click", async () => {
+    const minutes = clampMinutes(pauseInput.value, MIN_UNLOCK_MINUTES, MAX_UNLOCK_MINUTES);
+    if (minutes == null) {
+      pauseInput.value = String(DEFAULT_PAUSE_MINUTES);
+      setStatus(`Enter a number from ${MIN_UNLOCK_MINUTES} to ${MAX_UNLOCK_MINUTES}.`, "error");
+      return;
+    }
+    await pauseExtension(minutes);
+    await renderPause();
+    setStatus(`Focus Guard paused for ${minutes} min.`);
+  });
+
+  resumeBtn.addEventListener("click", async () => {
+    await resumeExtension();
+    await renderPause();
+    setStatus("Focus Guard resumed.");
+  });
+
+  // Keep in sync if the pause ends from the background or another popup.
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === "local" && changes.pausedUntil) renderPause();
+  });
+}
+
 /* -------------------------------- Init ------------------------------------ */
 
 /** Initialize the Settings tab. */
@@ -162,9 +228,19 @@ export async function initSettingsView() {
   resetBtn = document.getElementById("reset-btn");
   statusEl = document.getElementById("settings-status");
 
+  pauseInput = document.getElementById("pause-input");
+  pauseBtn = document.getElementById("pause-btn");
+  pauseControls = document.getElementById("pause-controls");
+  pauseStatus = document.getElementById("pause-status");
+  pauseRemaining = document.getElementById("pause-remaining");
+  resumeBtn = document.getElementById("resume-btn");
+
   await loadUnlock();
   bindUnlockInput();
   bindExport();
   bindImport();
   bindReset();
+
+  await renderPause();
+  bindPause();
 }

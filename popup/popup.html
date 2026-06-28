@@ -144,6 +144,25 @@
 
     <section>
       <div class="section-head">
+        <h2>Pause Focus Guard</h2>
+      </div>
+      <!-- Not paused: choose a duration and pause everything -->
+      <div id="pause-controls">
+        <div class="setting-row">
+          <span>Pause for (minutes)</span>
+          <input id="pause-input" type="number" min="1" max="1440" step="1" inputmode="numeric" aria-label="Pause duration in minutes" />
+        </div>
+        <button id="pause-btn" type="button" class="wide-btn">Pause everything</button>
+      </div>
+      <!-- Paused: show remaining time + resume -->
+      <div id="pause-status" class="hidden">
+        <p class="pause-line">Paused — <span id="pause-remaining">0:00</span> left</p>
+        <button id="resume-btn" type="button" class="wide-btn">Resume now</button>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head">
         <h2>Unlock duration</h2>
       </div>
       <div class="setting-row">

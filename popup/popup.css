@@ -390,6 +390,10 @@ section h2 {
 .settings-status.is-ok { color: #4ade80; }
 .settings-status.is-error { color: var(--danger); }
 
+/* Paused state: remaining-time line above the "Resume now" button. */
+.pause-line { font-size: 14px; margin: 0 0 2px; }
+.pause-line span { color: var(--accent); font-variant-numeric: tabular-nums; font-weight: 600; }
+
 .toggle {
   display: flex;
   align-items: center;

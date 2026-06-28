@@ -186,6 +186,36 @@ export async function resetSettings() {
     unlockMinutes: DEFAULT_UNLOCK_MINUTES,
   });
   await chrome.storage.local.remove(SNOOZE_KEY);
+  await chrome.storage.local.remove(PAUSE_KEY);
+}
+
+/* ------------------------- Pause (whole extension) ------------------------ */
+
+const PAUSE_KEY = "pausedUntil";
+
+/**
+ * Timestamp (ms) the global pause ends, or 0 if not paused / already elapsed.
+ * @returns {Promise<number>}
+ */
+export async function getPausedUntil() {
+  const { [PAUSE_KEY]: until = 0 } = await chrome.storage.local.get(PAUSE_KEY);
+  return until > Date.now() ? until : 0;
+}
+
+/**
+ * Pause the whole extension for `minutes`.
+ * @param {number} minutes
+ * @returns {Promise<number>} the timestamp the pause ends
+ */
+export async function setPause(minutes) {
+  const until = Date.now() + minutes * 60 * 1000;
+  await chrome.storage.local.set({ [PAUSE_KEY]: until });
+  return until;
+}
+
+/** End the global pause now. */
+export async function clearPause() {
+  await chrome.storage.local.remove(PAUSE_KEY);
 }
 
 /* -------------------------------- Snooze ---------------------------------- */

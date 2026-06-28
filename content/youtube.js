@@ -16,6 +16,8 @@ const CLASS_MAP = {
 // Live state, refreshed from storage.
 let settings = {};
 let allowedChannels = [];
+// Whether the whole extension is paused (storage.local "pausedUntil").
+let paused = false;
 // Per-session "watch anyway" bypass — video ids the user chose to watch.
 const bypassed = new Set();
 
@@ -37,7 +39,7 @@ function applyClasses() {
   const root = document.documentElement;
   for (const [key, classNames] of Object.entries(CLASS_MAP)) {
     // Toggles are "show" switches: hide the feature when it's switched off.
-    const hide = Boolean(settings.enabled && !settings[key]);
+    const hide = Boolean(settings.enabled && !paused && !settings[key]);
     for (const className of classNames) root.classList.toggle(className, hide);
   }
 }
@@ -48,7 +50,7 @@ function applyClasses() {
  */
 function applyHomeMessage() {
   const home = document.querySelector('ytd-browse[page-subtype="home"]:not([hidden])');
-  const active = Boolean(settings.enabled && !settings.showHomeFeed && home);
+  const active = Boolean(settings.enabled && !paused && !settings.showHomeFeed && home);
   const existing = document.getElementById("fg-home-msg");
 
   if (!active) {
@@ -133,7 +135,7 @@ const ITEM_SELECTOR = [
 
 /** Hide feed/search/sidebar video cards that aren't from an allow-listed channel. */
 function filterItems() {
-  const active = settings.enabled && settings.allowedChannelsOnly;
+  const active = settings.enabled && !paused && settings.allowedChannelsOnly;
   const items = document.querySelectorAll(ITEM_SELECTOR);
   let hiddenCount = 0;
   for (const item of items) {
@@ -277,7 +279,7 @@ function enforceWatchPage() {
     return;
   }
 
-  const active = settings.enabled && settings.allowedChannelsOnly;
+  const active = settings.enabled && !paused && settings.allowedChannelsOnly;
   const videoId = new URLSearchParams(location.search).get("v");
   const info = getWatchChannelInfo();
 
@@ -328,11 +330,15 @@ function refresh() {
   });
 }
 
-/** Load settings from storage and kick off the first pass. */
+/** Load settings (and pause state) from storage and kick off the first pass. */
 function loadAndStart() {
-  chrome.storage.sync.get(["youtube", "allowedChannels"]).then((data) => {
-    settings = data.youtube || {};
-    allowedChannels = data.allowedChannels || [];
+  Promise.all([
+    chrome.storage.sync.get(["youtube", "allowedChannels"]),
+    chrome.storage.local.get("pausedUntil"),
+  ]).then(([sync, local]) => {
+    settings = sync.youtube || {};
+    allowedChannels = sync.allowedChannels || [];
+    paused = Boolean(local.pausedUntil && local.pausedUntil > Date.now());
     refresh();
   });
 }
@@ -348,10 +354,16 @@ new MutationObserver(refresh).observe(document.documentElement, {
 // SPA navigation between videos/pages.
 window.addEventListener("yt-navigate-finish", refresh);
 
-// Live-update when settings change in the popup.
+// Live-update when settings or the global pause change.
 chrome.storage.onChanged.addListener((changes, area) => {
-  if (area !== "sync") return;
-  if (changes.youtube) settings = changes.youtube.newValue || {};
-  if (changes.allowedChannels) allowedChannels = changes.allowedChannels.newValue || [];
-  if (changes.youtube || changes.allowedChannels) refresh();
+  if (area === "sync") {
+    if (changes.youtube) settings = changes.youtube.newValue || {};
+    if (changes.allowedChannels) allowedChannels = changes.allowedChannels.newValue || [];
+    if (changes.youtube || changes.allowedChannels) refresh();
+  }
+  if (area === "local" && changes.pausedUntil) {
+    const until = changes.pausedUntil.newValue;
+    paused = Boolean(until && until > Date.now());
+    refresh();
+  }
 });
