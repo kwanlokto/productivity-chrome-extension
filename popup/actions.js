@@ -5,22 +5,25 @@
 import {
   getDomains,
   setDomains,
+  getActiveSnooze,
   addSnooze,
   removeSnooze,
   extendSnooze as extendSnoozeStorage,
   setPause,
   clearPause,
 } from "./storage.js";
-
-/** Alarm name the background uses to end a global pause. */
-const PAUSE_ALARM = "fg-pause-end";
-import { addBlockRule, removeBlockRule } from "./rules.js";
+import { addBlockRule, removeBlockRule, removeAllBlockRules } from "./rules.js";
 import {
   getActiveTab,
+  getCurrentTabDomain,
+  domainMatchesBlocked,
   getBlockedOriginalUrl,
   navigateActiveTab,
   reloadActiveTab,
 } from "./tabs.js";
+
+/** Alarm name the background uses to end a global pause. */
+const PAUSE_ALARM = "fg-pause-end";
 
 /**
  * Add a domain to the blocked list. The background worker picks up the storage
@@ -124,12 +127,18 @@ export async function unsnooze(domain) {
 }
 
 /**
- * Pause the entire extension (blocking + YouTube tweaks) for `minutes`, scheduling
- * the automatic resume. The background worker reacts to the stored pause state.
+ * Pause the entire extension (blocking + YouTube tweaks) for `minutes`. Unblocks
+ * immediately here in the popup — dropping every rule and sending the active tab
+ * (if it's parked on the blocked page) back to the real site — rather than waiting
+ * on the background worker, which may be asleep. Also schedules the auto-resume
+ * alarm; the worker still releases blocked tabs in other windows.
  * @param {number} minutes
  */
 export async function pauseExtension(minutes) {
   const until = await setPause(minutes);
+  await removeAllBlockRules();
+  const original = await getBlockedOriginalUrl();
+  if (original) await navigateActiveTab(original);
   try {
     await chrome.alarms.create(PAUSE_ALARM, { when: until });
   } catch (e) {
@@ -137,8 +146,21 @@ export async function pauseExtension(minutes) {
   }
 }
 
-/** End the global pause now and cancel its scheduled resume. */
+/**
+ * End the global pause now: cancel the resume alarm, restore a rule for every
+ * blocked (non-snoozed) domain, and bounce the active tab back to the blocked page
+ * if it's on one. Done here rather than via the background so resuming is immediate.
+ */
 export async function resumeExtension() {
   await clearPause();
   await chrome.alarms.clear(PAUSE_ALARM);
+
+  const [domains, snoozed] = await Promise.all([getDomains(), getActiveSnooze()]);
+  for (const domain of domains) {
+    if (!snoozed[domain]) await addBlockRule(domain);
+  }
+
+  const tabDomain = await getCurrentTabDomain();
+  const matched = tabDomain ? domainMatchesBlocked(tabDomain, domains) : null;
+  if (matched && !snoozed[matched]) await reloadActiveTab();
 }

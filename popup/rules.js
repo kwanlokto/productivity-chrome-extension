@@ -25,6 +25,15 @@ export async function removeBlockRule(domain) {
   }
 }
 
+/** Remove every dynamic blocking rule — used when pausing the whole extension. */
+export async function removeAllBlockRules() {
+  const existing = await chrome.declarativeNetRequest.getDynamicRules();
+  if (existing.length === 0) return;
+  await chrome.declarativeNetRequest.updateDynamicRules({
+    removeRuleIds: existing.map((r) => r.id),
+  });
+}
+
 /**
  * Add a blocking rule for a domain. No-op if one already exists.
  * @param {string} domain
