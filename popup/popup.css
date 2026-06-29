@@ -250,46 +250,10 @@ section h2 {
 .wide-btn:disabled { opacity: 0.4; cursor: default; }
 .wide-btn:disabled:hover { border-color: var(--surface-2); }
 
-/* --- Global pause bar (Main tab, under the circle) --- */
-#pause-bar { margin-top: 16px; }
-.pause-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-.pause-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  color: var(--muted);
-}
-#pause-input {
-  width: 52px;
-  background: var(--surface);
-  border: 1px solid var(--surface-2);
-  border-radius: 8px;
-  padding: 6px 8px;
-  color: var(--text);
-  font-size: 13px;
-  text-align: center;
-  color-scheme: dark; /* dark-mode native stepper, matching #unlock-input */
-}
-#pause-input:focus { outline: none; border-color: var(--accent); }
-.pause-btn {
-  background: var(--surface);
-  border: 1px solid var(--surface-2);
-  border-radius: 8px;
-  color: var(--text);
-  font-size: 13px;
-  font-weight: 600;
-  padding: 7px 16px;
-  cursor: pointer;
-}
-.pause-btn:hover { border-color: var(--accent); }
-/* When paused, the "Resume now" button stands alone — drop the wide-btn top gap. */
-#resume-btn { margin-top: 0; }
+/* --- Disable-everywhere section (Main tab, under the circle). Reuses the
+   .section-head / .setting-row / .wide-btn patterns from the Settings tab. --- */
+#pause-section { margin-bottom: 0; }
+#pause-section .wide-btn { margin-top: 12px; }
 
 .back-link {
   display: inline-flex;
@@ -403,7 +367,8 @@ section h2 {
   gap: 10px;
   font-size: 14px;
 }
-#unlock-input {
+#unlock-input,
+#pause-input {
   width: 64px;
   background: var(--surface);
   border: 1px solid var(--surface-2);
@@ -416,7 +381,8 @@ section h2 {
      drops the white background block (and the arrows match the dark field). */
   color-scheme: dark;
 }
-#unlock-input:focus { outline: none; border-color: var(--accent); }
+#unlock-input:focus,
+#pause-input:focus { outline: none; border-color: var(--accent); }
 
 /* Settings buttons sit directly under their section heading, so drop the big
    top margin a lone wide-btn carries and only space stacked buttons apart. */

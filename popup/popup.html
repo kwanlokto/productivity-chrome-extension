@@ -54,17 +54,21 @@
         </div>
       </section>
 
-      <!-- Global pause: suspends all blocking + YouTube tweaks for a set time.
-           While paused the circle above shows the live countdown. -->
-      <div id="pause-bar">
-        <div id="pause-controls" class="pause-row">
-          <label class="pause-label" for="pause-input">Pause for
-            <input id="pause-input" type="number" min="1" max="1440" step="1" inputmode="numeric" aria-label="Pause duration in minutes" /> min
-          </label>
-          <button id="pause-btn" type="button" class="pause-btn">Pause</button>
+      <!-- Globally turn the whole extension off (all site blocking + YouTube
+           tweaks) for a set time. While disabled the circle above counts down. -->
+      <section id="pause-section">
+        <div class="section-head">
+          <h2>Disable Focus Guard</h2>
         </div>
-        <button id="resume-btn" type="button" class="wide-btn hidden">Resume now</button>
-      </div>
+        <div id="pause-controls">
+          <div class="setting-row">
+            <span>Turn off everything for (min)</span>
+            <input id="pause-input" type="number" min="1" max="1440" step="1" inputmode="numeric" aria-label="Minutes to disable Focus Guard" />
+          </div>
+          <button id="pause-btn" type="button" class="wide-btn">Disable for the set time</button>
+        </div>
+        <button id="resume-btn" type="button" class="wide-btn hidden">Turn Focus Guard back on</button>
+      </section>
 
       <button id="open-manage" class="wide-btn">Change blocked sites</button>
     </div>

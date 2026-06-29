@@ -173,8 +173,8 @@ function startPauseCountdown(until) {
 }
 
 /**
- * Toggle the pause bar between its two states: the "Pause for N min" controls
- * (not paused) and the "Resume now" button (paused).
+ * Toggle the disable section between its two states: the duration controls
+ * (enabled) and the "Turn Focus Guard back on" button (disabled).
  * @param {boolean} paused
  */
 function renderPauseBar(paused) {
@@ -218,11 +218,11 @@ async function updateStatusCircle() {
   ]);
   unlockMinutes = minutes;
 
-  // Whole extension paused — nothing is blocked. The circle becomes an inert
-  // live countdown; the pause bar below swaps to a "Resume now" button.
+  // Whole extension disabled — nothing is blocked. The circle becomes an inert
+  // live countdown; the section below swaps to "Turn Focus Guard back on".
   if (pausedUntil) {
     renderPauseBar(true);
-    showCircle("is-disabled", "", "paused", null);
+    showCircle("is-disabled", "", "disabled", null);
     startPauseCountdown(pausedUntil);
     return;
   }
