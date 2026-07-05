@@ -222,7 +222,7 @@ async function updateStatusCircle() {
   // live countdown; the section below swaps to "Turn Focus Guard back on".
   if (pausedUntil) {
     renderPauseBar(true);
-    showCircle("is-disabled", "", "disabled", null);
+    showCircle("is-disabled", "", "off", null);
     startPauseCountdown(pausedUntil);
     return;
   }
