@@ -76,3 +76,17 @@ To add a YouTube toggle:
 ## Permissions
 
 `host_permissions: <all_urls>` is required because a `declarativeNetRequest` **redirect** rule needs host access. Switching to a plain `block` rule would remove that requirement but lose the custom blocked page. Keep this trade-off in mind before changing manifest permissions, since they are justified in the Chrome Web Store listing.
+
+## Agent skills
+
+### Issue tracker
+
+Issues are tracked in this repo's GitHub Issues, using the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The five default roles, each label named after its role: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: one root `GLOSSARY.md` plus `docs/adr/`, both created lazily. See `docs/agents/domain.md`.
