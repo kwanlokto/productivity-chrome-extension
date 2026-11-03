@@ -20,8 +20,13 @@ distracting sites and taming YouTube's doom-scroll machinery.
   - **Comments** — hides the comment section
   - **Allowed channels only** — show videos only from an allow-list; opening a
     non-allowed video shows a block screen with a "watch anyway" escape
-- **Settings tab** — Change how long "Unlock" lifts a block for, save your settings
-  to a JSON file, load them back, or reset everything to defaults.
+- **On/off switch** — The switch in the popup header turns all of Focus Guard (site
+  blocking and YouTube tweaks) off for a set number of minutes, then it turns
+  itself back on. While it's off, the header counts down the time left and the
+  rest of the popup is grayed out. Flip it back on to end the break early.
+- **Settings tab** — Change how long "Unlock" lifts a block for and how long the
+  on/off switch turns Focus Guard off for, save your settings to a JSON file, load
+  them back, or reset everything to defaults.
 
 ## How it works
 
@@ -41,20 +46,37 @@ as an ES module, which is split by concern:
 |--------|----------------|
 | [config.js](popup/config.js) | Constants (defaults, snooze length, ring geometry). |
 | [util.js](popup/util.js) | Pure helpers: domain/channel normalization, clock formatting. |
-| [storage.js](popup/storage.js) | All `chrome.storage` reads/writes (domains, YouTube settings, channels, snooze). |
+| [storage.js](popup/storage.js) | All `chrome.storage` reads/writes (domains, YouTube settings, channels, durations, snooze, pause). |
 | [rules.js](popup/rules.js) | Add/remove `declarativeNetRequest` blocking rules directly. |
 | [tabs.js](popup/tabs.js) | `chrome.tabs` helpers (active tab, current domain, navigate, reload). |
-| [actions.js](popup/actions.js) | High-level actions (add/remove/block/snooze/unsnooze) combining the above. |
+| [actions.js](popup/actions.js) | High-level actions (add/remove/block/snooze/unsnooze/pause/resume) combining the above. |
+| [header-view.js](popup/header-view.js) | Header: the on/off switch, its "time left" countdown, and graying out the rest of the popup while off. |
 | [sites-view.js](popup/sites-view.js) | "Blocked sites" tab: list + the circular status/action control. |
 | [youtube-view.js](popup/youtube-view.js) | "YouTube" tab: focus toggles + allowed-channels list. |
-| [settings-view.js](popup/settings-view.js) | "Settings" tab: unlock duration, backup/restore to a file, reset to defaults. |
+| [settings-view.js](popup/settings-view.js) | "Settings" tab: unlock and disable durations, backup/restore to a file, reset to defaults. |
 | [popup.js](popup/popup.js) | Entry point: tab navigation + view init. |
 
 Settings live in `chrome.storage.sync` under `blockedDomains` (array of bare
 domains), `youtube` (the feature toggles), `allowedChannels` (allow-listed
-handles), and `unlockMinutes` (how long "Unlock" lifts a block for). Active
+handles), `unlockMinutes` (how long "Unlock" lifts a block for), and
+`pauseMinutes` (how long the on/off switch turns Focus Guard off for). Active
 snoozes live in `chrome.storage.local` under `snoozed`
-(`{ domain: { start, expiry } }`).
+(`{ domain: { start, expiry, cap } }`), and an active whole-extension pause under
+`pausedUntil` (the timestamp it ends).
+
+## Tests
+
+The popup is tested with [Playwright](https://playwright.dev), which loads the
+unpacked extension into a real Chromium and drives the popup page:
+
+```powershell
+npm install
+npx playwright install chromium
+npm test
+```
+
+Run one file with `npx playwright test tests/power-switch.spec.js`, or one test with
+`-g "<part of its name>"`.
 
 ## Install (developer / unpacked)
 
@@ -84,8 +106,10 @@ folder). Two ways to produce it:
 - **Locally** — zip the project, excluding repo/dev files:
   ```powershell
   # from the project root (PowerShell)
-  $items = Get-ChildItem -Force |
-    Where-Object { $_.Name -notin @('.git', '.github', 'dist', 'focus-guard.zip') }
+  $exclude = @('.git', '.github', 'dist', 'focus-guard.zip', 'README.md', 'CLAUDE.md',
+    'docs', 'node_modules', 'tests', 'test-results', 'playwright-report',
+    'package.json', 'package-lock.json', 'playwright.config.js')
+  $items = Get-ChildItem -Force | Where-Object { $_.Name -notin $exclude }
   Compress-Archive -Path $items.FullName -DestinationPath focus-guard.zip -Force
   ```
 - **Via CI** — the [build workflow](.github/workflows/build.yml) produces

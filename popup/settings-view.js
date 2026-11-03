@@ -1,17 +1,19 @@
-// "Settings" tab: configurable unlock duration, backup/restore to a file, and
-// reset-to-defaults.
+// "Settings" tab: configurable unlock and disable durations, backup/restore to a
+// file, and reset-to-defaults.
 
 import { MAX_UNLOCK_MINUTES, MIN_UNLOCK_MINUTES } from "./config.js";
 import { clampMinutes } from "./util.js";
 import {
   getUnlockMinutes,
   setUnlockMinutes,
+  getPauseMinutes,
+  setPauseMinutes,
   exportSettings,
   importSettings,
   resetSettings,
 } from "./storage.js";
 
-let unlockInput, exportBtn, importBtn, importFile, resetBtn, statusEl;
+let unlockInput, pauseInput, exportBtn, importBtn, importFile, resetBtn, statusEl;
 
 // The "Reset" button is a two-step confirm: first click arms it, second resets.
 let resetArmed = false;
@@ -74,6 +76,42 @@ function bindUnlockInput() {
   });
 }
 
+/* ---------------------------- Disable duration ---------------------------- */
+
+/** Reflect the stored disable duration into the input. */
+async function loadPause() {
+  pauseInput.value = String(await getPauseMinutes());
+}
+
+/** Persist the entered duration. Empty/invalid input reverts to the saved value. */
+async function savePause() {
+  if (pauseInput.value.trim() === "") {
+    await loadPause();
+    return;
+  }
+  const minutes = clampMinutes(
+    pauseInput.value,
+    MIN_UNLOCK_MINUTES,
+    MAX_UNLOCK_MINUTES,
+  );
+  if (minutes == null) {
+    await loadPause();
+    setStatus(`Enter a number from ${MIN_UNLOCK_MINUTES} to ${MAX_UNLOCK_MINUTES}.`, "error");
+    return;
+  }
+  await setPauseMinutes(minutes);
+  pauseInput.value = String(minutes); // show the clamped value
+  setStatus(`Disable duration saved — ${minutes} min.`);
+}
+
+function bindPauseInput() {
+  // Same commit-on-blur behavior as the unlock duration.
+  pauseInput.addEventListener("change", savePause);
+  pauseInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") pauseInput.blur();
+  });
+}
+
 /* ----------------------------- Backup / restore --------------------------- */
 
 function bindExport() {
@@ -107,8 +145,7 @@ function bindImport() {
     if (!file) return;
     try {
       const data = JSON.parse(await file.text());
-      await importSettings(data);
-      await loadUnlock();
+      await importSettings(data); // the storage listener refreshes the fields
       setStatus("Settings loaded.");
     } catch (e) {
       console.error("[Focus Guard] import failed:", e);
@@ -141,8 +178,7 @@ function bindReset() {
     }
     disarmReset();
     try {
-      await resetSettings();
-      await loadUnlock();
+      await resetSettings(); // the storage listener refreshes the fields
       setStatus("Everything reset to defaults.");
     } catch (e) {
       console.error("[Focus Guard] reset failed:", e);
@@ -151,11 +187,27 @@ function bindReset() {
   });
 }
 
+/* ------------------------------ Storage sync ------------------------------ */
+
+/**
+ * Keep the duration fields in sync when they change from elsewhere: Load
+ * settings, Reset, or another device via Chrome sync. A field the user is
+ * editing is left alone.
+ */
+function bindStorageSync() {
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== "sync") return;
+    if (changes.unlockMinutes && document.activeElement !== unlockInput) loadUnlock();
+    if (changes.pauseMinutes && document.activeElement !== pauseInput) loadPause();
+  });
+}
+
 /* -------------------------------- Init ------------------------------------ */
 
 /** Initialize the Settings tab. */
 export async function initSettingsView() {
   unlockInput = document.getElementById("unlock-input");
+  pauseInput = document.getElementById("pause-input");
   exportBtn = document.getElementById("export-btn");
   importBtn = document.getElementById("import-btn");
   importFile = document.getElementById("import-file");
@@ -163,8 +215,11 @@ export async function initSettingsView() {
   statusEl = document.getElementById("settings-status");
 
   await loadUnlock();
+  await loadPause();
   bindUnlockInput();
+  bindPauseInput();
   bindExport();
   bindImport();
   bindReset();
+  bindStorageSync();
 }

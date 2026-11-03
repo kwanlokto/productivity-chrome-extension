@@ -1,6 +1,7 @@
 // Popup entry point: wire up tab navigation and initialize each view.
 // (Loaded as an ES module — see popup.html.)
 
+import { initHeaderView } from "./header-view.js";
 import { initSitesView } from "./sites-view.js";
 import { initYoutubeView } from "./youtube-view.js";
 import { initSettingsView } from "./settings-view.js";
@@ -56,6 +57,7 @@ function initNav() {
 }
 
 initNav();
+initHeaderView();
 initSitesView();
 initYoutubeView();
 initSettingsView();

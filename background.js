@@ -199,9 +199,11 @@ async function activeTabDomain() {
 
 /**
  * True when a snooze is in its final 30s AND the active tab is on that snoozed
- * domain — i.e. the moment it's actually worth nagging the user.
+ * domain — i.e. the moment it's actually worth nagging the user. Never while the
+ * whole extension is off: nothing is about to re-block, and the popup is grayed out.
  */
 async function shouldNag() {
+  if (await isPaused()) return false;
   const snoozed = await getSnoozed();
   const now = Date.now();
   const imminent = Object.entries(snoozed)

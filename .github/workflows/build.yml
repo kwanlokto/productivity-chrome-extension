@@ -29,7 +29,16 @@ jobs:
             --exclude='dist/' \
             --exclude='build/' \
             --exclude='README.md' \
+            --exclude='CLAUDE.md' \
+            --exclude='docs/' \
             --exclude='*.zip' \
+            --exclude='node_modules/' \
+            --exclude='tests/' \
+            --exclude='test-results/' \
+            --exclude='playwright-report/' \
+            --exclude='package.json' \
+            --exclude='package-lock.json' \
+            --exclude='playwright.config.js' \
             ./ build/
 
       # Upload the UNPACKED extension. GitHub always wraps an artifact in its own

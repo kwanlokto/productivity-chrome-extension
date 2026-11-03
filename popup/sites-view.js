@@ -2,13 +2,7 @@
 
 import * as actions from "./actions.js";
 
-import {
-  DEFAULT_UNLOCK_MINUTES,
-  DEFAULT_PAUSE_MINUTES,
-  MIN_UNLOCK_MINUTES,
-  MAX_UNLOCK_MINUTES,
-  RING_CIRCUMFERENCE,
-} from "./config.js";
+import { DEFAULT_UNLOCK_MINUTES, RING_CIRCUMFERENCE } from "./config.js";
 import { domainMatchesBlocked, getCurrentTabDomain } from "./tabs.js";
 import {
   capOf,
@@ -18,13 +12,12 @@ import {
   getPausedUntil,
   getUnlockMinutes,
 } from "./storage.js";
-import { clampMinutes, formatClock, normalizeDomain, reanimate } from "./util.js";
+import { formatClock, normalizeDomain, reanimate } from "./util.js";
 
 // DOM refs (populated in initSitesView).
 let listEl, emptyEl, formEl, inputEl;
 let actionWrap, actionCircle, ringProgress, circleMain, circleSub;
 let mainView, manageView, openManageBtn, backBtn, addMinuteBtn;
-let pauseControls, pauseInput, pauseBtn, resumeBtn;
 
 // Secondary "unlock for N×" buttons that flank the main circle, populated in
 // initSitesView as [{ btn, sub, factor }].
@@ -32,6 +25,9 @@ let multiplierBtns = [];
 
 // Handle for the live countdown interval, so we can cancel it on re-render.
 let countdownTimer = null;
+
+// One-shot timer that re-renders the circle when a whole-extension pause ends.
+let pauseEndTimer = null;
 
 // The user's configured "Unlock" duration, refreshed on each status update.
 let unlockMinutes = DEFAULT_UNLOCK_MINUTES;
@@ -152,40 +148,6 @@ function startCountdown(snoozeEntry) {
 }
 
 /**
- * Drive the inert circle's "m:ss" label while the whole extension is paused,
- * re-rendering normally once the pause elapses. Reuses countdownTimer (paused and
- * snoozed states are mutually exclusive).
- * @param {number} until pause-end timestamp
- */
-function startPauseCountdown(until) {
-  const tick = () => {
-    const remaining = until - Date.now();
-    if (remaining <= 0) {
-      clearInterval(countdownTimer);
-      countdownTimer = null;
-      updateStatusCircle(); // pause ended — re-render
-      return;
-    }
-    circleMain.textContent = formatClock(remaining);
-  };
-  tick();
-  countdownTimer = setInterval(tick, 250);
-}
-
-/**
- * Toggle the disable section between its two states: the duration controls
- * (enabled) and the "Turn Focus Guard back on" button (disabled).
- * @param {boolean} paused
- */
-function renderPauseBar(paused) {
-  pauseControls.classList.toggle("hidden", paused);
-  resumeBtn.classList.toggle("hidden", !paused);
-  if (!paused && document.activeElement !== pauseInput) {
-    pauseInput.value = String(DEFAULT_PAUSE_MINUTES);
-  }
-}
-
-/**
  * Which snooze the circle counts down: only the current tab's own snooze. (The
  * background only auto-opens the popup while you're on the expiring site, so the
  * popup always reflects the tab you're looking at — no cross-tab countdowns.)
@@ -203,12 +165,6 @@ function pickCountdownDomain(matched, snoozed) {
  * blocked (Unlock).
  */
 async function updateStatusCircle() {
-  if (countdownTimer) {
-    clearInterval(countdownTimer);
-    countdownTimer = null;
-  }
-  ringProgress.classList.add("hidden");
-
   const [tabDomain, domains, snoozed, minutes, pausedUntil] = await Promise.all([
     getCurrentTabDomain(),
     getDomains(),
@@ -216,17 +172,24 @@ async function updateStatusCircle() {
     getUnlockMinutes(),
     getPausedUntil(),
   ]);
+  // Clear after the await so overlapping re-renders can't orphan a timer.
+  if (countdownTimer) {
+    clearInterval(countdownTimer);
+    countdownTimer = null;
+  }
+  clearTimeout(pauseEndTimer);
+  pauseEndTimer = null;
+  ringProgress.classList.add("hidden");
   unlockMinutes = minutes;
 
-  // Whole extension disabled — nothing is blocked. The circle becomes an inert
-  // live countdown; the section below swaps to "Turn Focus Guard back on".
+  // Whole extension disabled — nothing is blocked. The circle is a static, inert
+  // "Off"; the header shows the time left.
   if (pausedUntil) {
-    renderPauseBar(true);
-    showCircle("is-disabled", "", "off", null);
-    startPauseCountdown(pausedUntil);
+    showCircle("is-disabled", "Off", "", null);
+    // Re-render the moment the pause runs out, without waiting on the resume alarm.
+    pauseEndTimer = setTimeout(updateStatusCircle, pausedUntil - Date.now());
     return;
   }
-  renderPauseBar(false);
 
   const blockable = tabDomain && tabDomain.includes(".");
   const matched = blockable ? domainMatchesBlocked(tabDomain, domains) : null;
@@ -315,24 +278,11 @@ function bindStorageSync() {
     if (area === "sync" && (changes.unlockMinutes || changes.blockedDomains)) {
       refresh();
     }
-    // Pausing/resuming the whole extension flips the circle to/from "Paused".
+    // Turning the whole extension off/on flips the circle to/from "Off".
     if (area === "local" && changes.pausedUntil) {
       refresh();
     }
   });
-}
-
-/** Wire the global pause / resume controls on the Main tab. */
-function bindPause() {
-  pauseBtn.addEventListener("click", () => {
-    const minutes = clampMinutes(pauseInput.value, MIN_UNLOCK_MINUTES, MAX_UNLOCK_MINUTES);
-    if (minutes == null) {
-      pauseInput.value = String(DEFAULT_PAUSE_MINUTES);
-      return;
-    }
-    run(() => actions.pauseExtension(minutes));
-  });
-  resumeBtn.addEventListener("click", () => run(() => actions.resumeExtension()));
 }
 
 /** Wire up the add-domain form. */
@@ -373,14 +323,8 @@ export function initSitesView() {
   backBtn = document.getElementById("back-to-main");
   addMinuteBtn = document.getElementById("add-minute-btn");
 
-  pauseControls = document.getElementById("pause-controls");
-  pauseInput = document.getElementById("pause-input");
-  pauseBtn = document.getElementById("pause-btn");
-  resumeBtn = document.getElementById("resume-btn");
-
   bindManageNav();
   bindAddForm();
-  bindPause();
   bindStorageSync();
   refresh();
 }

@@ -4,14 +4,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-Focus Guard: a Manifest V3 Chrome extension that blocks distracting sites (redirecting them to an in-extension reminder page, with timed "Unlock" snoozes) and hides distracting YouTube UI. Plain JavaScript, HTML, and CSS. There is **no build step, no package.json, no test suite, and no linter**.
+Focus Guard: a Manifest V3 Chrome extension that blocks distracting sites (redirecting them to an in-extension reminder page, with timed "Unlock" snoozes) and hides distracting YouTube UI. Plain JavaScript, HTML, and CSS. There is **no build step and no linter**. The only tooling is Playwright, used for tests; `package.json` exists only for that.
 
 ## Development workflow
 
 - **Run locally:** at `chrome://extensions`, turn on Developer mode, click **Load unpacked**, and select the repo root (the folder containing `manifest.json`).
 - **After editing:** click the reload icon on the extension card. Changes to the content script also need the YouTube tab reloaded. Debug the background worker through "Inspect views: service worker" on the extension card. Debug the popup by right-clicking it and choosing Inspect.
-- **Verification is manual:** exercise the change in the browser. Logs use the `[Focus Guard]` prefix.
+- **Tests:** first-time setup is `npm install` then `npx playwright install chromium`. Run everything with `npm test`, one file with `npx playwright test tests/power-switch.spec.js`, and one test with `-g "<part of its name>"`. Tests only cover the popup page (see **Tests** below). Background-only and active-tab behavior is still checked by hand in Chrome. Logs use the `[Focus Guard]` prefix.
 - **Release:** bump `version` in `manifest.json` (the Chrome Web Store rejects re-uploads of an existing version). Then push a `v*` tag, and `.github/workflows/build.yml` attaches `focus-guard-v<version>.zip` to a GitHub Release. Every push to `main` also uploads the unpacked build as an Actions artifact. For a local store zip, use the PowerShell `Compress-Archive` snippet in README.md.
+- **Packaging:** the extension ships the whole repo root, minus an exclude list. Anything new at the root that isn't part of the extension (tooling, docs) must be added to both the `rsync --exclude` list in `build.yml` and the `$exclude` list in README.md's zip snippet.
 
 ## Architecture
 
@@ -30,7 +31,7 @@ There are four runtime contexts. Their module systems differ:
 
 All popup storage access goes through `popup/storage.js`.
 
-- `chrome.storage.sync`: `blockedDomains` (bare domains), `youtube` (see `DEFAULT_YOUTUBE`), `allowedChannels`, `unlockMinutes`.
+- `chrome.storage.sync`: `blockedDomains` (bare domains), `youtube` (see `DEFAULT_YOUTUBE`), `allowedChannels`, `unlockMinutes`, and `pauseMinutes` (how long the header switch turns Focus Guard off for).
 - `chrome.storage.local`: `snoozed` and `pausedUntil` (a ms timestamp for the whole-extension pause).
   - `snoozed` has the shape `{ [domain]: { start, expiry, cap } }`. Older entries may be a bare expiry number. Always read entries through `expiryOf` / `startOf` / `capOf`.
 
@@ -72,6 +73,20 @@ To add a YouTube toggle:
 ### Popup structure
 
 `popup.js` wires the tab navigation and calls each view's `init*`. The views (`sites-view.js`, `youtube-view.js`, `settings-view.js`) contain the DOM code. They call `actions.js`, which combines storage, rules, and tabs operations and contains no DOM code. The views then re-render, and they also subscribe to `chrome.storage.onChanged` so changes made elsewhere show up.
+
+`header-view.js` owns the header's on/off switch for the whole extension (the `pausedUntil` pause), which applies across all tabs. While the extension is paused, it dims `#app-body` (everything below the header) and sets `inert` on it, so nothing there can be clicked, focused, or read by assistive tech. Controls inside the tabs therefore don't need their own "paused" handling.
+
+### Tests
+
+`tests/fixtures.js` starts a fresh Chromium profile per test, with the repo root loaded unpacked:
+- The `openPopup({ sync, local })` fixture seeds `chrome.storage` through the background service worker, then opens `popup/popup.html` in a tab.
+- The `readStorage(area, keys)` fixture reads storage back.
+
+Two consequences of opening the popup as a tab rather than as a real popup:
+- **Active tab:** the popup counts itself as the active tab, so the circle always shows "can't block". Anything that depends on the active tab being a real site needs a manual check.
+- **Timed opening:** `chrome.action.openPopup` behavior, like the 30-second reminder, can't be tested.
+
+Write tests against what a user sees: role- and label-based locators, visible text, and resulting storage.
 
 ## Permissions
 

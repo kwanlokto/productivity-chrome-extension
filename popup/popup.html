@@ -9,7 +9,18 @@
   <header>
     <img class="logo" src="sprout.png" alt="" />
     <h1>Focus Guard</h1>
+    <!-- Turns the whole extension (all site blocking + YouTube tweaks) off for
+         the "Minutes off" set on the Settings tab. -->
+    <div class="power">
+      <span id="power-countdown" class="power-countdown hidden"></span>
+      <label class="toggle">
+        <input type="checkbox" role="switch" id="power-switch" />
+      </label>
+    </div>
   </header>
+
+  <!-- Everything below the header: dimmed and inert while Focus Guard is off. -->
+  <div id="app-body">
 
   <nav class="tabs" role="tablist" aria-label="Focus Guard sections">
     <button class="tab is-active" id="tab-sites" data-tab="sites" role="tab" aria-selected="true" aria-controls="panel-sites" tabindex="0">Main</button>
@@ -52,22 +63,6 @@
             </button>
           </div>
         </div>
-      </section>
-
-      <!-- Globally turn the whole extension off (all site blocking + YouTube
-           tweaks) for a set time. While disabled the circle above counts down. -->
-      <section id="pause-section">
-        <div class="section-head">
-          <h2>Disable Focus Guard</h2>
-        </div>
-        <div id="pause-controls">
-          <div class="setting-row">
-            <span>Minutes off</span>
-            <input id="pause-input" type="number" min="1" max="1440" step="1" inputmode="numeric" aria-label="Minutes to disable Focus Guard" />
-          </div>
-          <button id="pause-btn" type="button" class="wide-btn">Disable</button>
-        </div>
-        <button id="resume-btn" type="button" class="wide-btn hidden">Turn back on</button>
       </section>
 
       <button id="open-manage" class="wide-btn">Change blocked sites</button>
@@ -171,6 +166,16 @@
 
     <section>
       <div class="section-head">
+        <h2>Disable duration</h2>
+      </div>
+      <div class="setting-row">
+        <span>Minutes off</span>
+        <input id="pause-input" type="number" min="1" max="1440" step="1" inputmode="numeric" aria-label="Disable duration in minutes" />
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head">
         <h2>Backup &amp; restore</h2>
       </div>
       <button id="export-btn" type="button" class="wide-btn">Save settings</button>
@@ -188,6 +193,8 @@
     <p id="settings-status" class="settings-status" role="status" aria-live="polite"></p>
 
   </div>
+
+  </div><!-- /#app-body -->
 
   <script type="module" src="popup.js"></script>
 </body>

@@ -1,15 +1,16 @@
 // All chrome.storage access lives here, so the rest of the app never touches
 // storage keys directly.
 //
-// - blockedDomains / youtube / allowedChannels: chrome.storage.sync (synced across
-//   the user's Chrome profile).
-// - snoozed: chrome.storage.local (transient, device-local).
+// - blockedDomains / youtube / allowedChannels / unlockMinutes / pauseMinutes:
+//   chrome.storage.sync (synced across the user's Chrome profile).
+// - snoozed / pausedUntil: chrome.storage.local (transient, device-local).
 
 import {
   DEFAULT_BLOCKED,
   DEFAULT_YOUTUBE,
   DEFAULT_CHANNELS,
   DEFAULT_UNLOCK_MINUTES,
+  DEFAULT_PAUSE_MINUTES,
   MIN_UNLOCK_MINUTES,
   MAX_UNLOCK_MINUTES,
 } from "./config.js";
@@ -101,7 +102,7 @@ export async function setUnlockMinutes(minutes) {
 /**
  * Snapshot all synced settings into a plain object suitable for saving to a file.
  * @returns {Promise<{ blockedDomains: string[], youtube: typeof DEFAULT_YOUTUBE,
- *   allowedChannels: string[], unlockMinutes: number }>}
+ *   allowedChannels: string[], unlockMinutes: number, pauseMinutes: number }>}
  */
 export async function exportSettings() {
   const stored = await chrome.storage.sync.get([
@@ -109,6 +110,7 @@ export async function exportSettings() {
     "youtube",
     "allowedChannels",
     "unlockMinutes",
+    "pauseMinutes",
   ]);
   return {
     blockedDomains: stored.blockedDomains ?? DEFAULT_BLOCKED,
@@ -120,6 +122,12 @@ export async function exportSettings() {
         MIN_UNLOCK_MINUTES,
         MAX_UNLOCK_MINUTES,
       ) ?? DEFAULT_UNLOCK_MINUTES,
+    pauseMinutes:
+      clampMinutes(
+        stored.pauseMinutes ?? DEFAULT_PAUSE_MINUTES,
+        MIN_UNLOCK_MINUTES,
+        MAX_UNLOCK_MINUTES,
+      ) ?? DEFAULT_PAUSE_MINUTES,
   };
 }
 
@@ -168,6 +176,15 @@ export async function importSettings(raw) {
     if (minutes != null) patch.unlockMinutes = minutes;
   }
 
+  if (raw.pauseMinutes != null) {
+    const minutes = clampMinutes(
+      raw.pauseMinutes,
+      MIN_UNLOCK_MINUTES,
+      MAX_UNLOCK_MINUTES,
+    );
+    if (minutes != null) patch.pauseMinutes = minutes;
+  }
+
   if (Object.keys(patch).length === 0) {
     throw new Error("No Focus Guard settings found in that file.");
   }
@@ -184,6 +201,7 @@ export async function resetSettings() {
     youtube: { ...DEFAULT_YOUTUBE },
     allowedChannels: [...DEFAULT_CHANNELS],
     unlockMinutes: DEFAULT_UNLOCK_MINUTES,
+    pauseMinutes: DEFAULT_PAUSE_MINUTES,
   });
   await chrome.storage.local.remove(SNOOZE_KEY);
   await chrome.storage.local.remove(PAUSE_KEY);
@@ -192,6 +210,30 @@ export async function resetSettings() {
 /* ------------------------- Pause (whole extension) ------------------------ */
 
 const PAUSE_KEY = "pausedUntil";
+
+/**
+ * How long the header switch turns Focus Guard off for, in minutes. Configurable
+ * on the Settings tab; falls back to the default when unset.
+ * @returns {Promise<number>}
+ */
+export async function getPauseMinutes() {
+  const { pauseMinutes = DEFAULT_PAUSE_MINUTES } =
+    await chrome.storage.sync.get("pauseMinutes");
+  return (
+    clampMinutes(pauseMinutes, MIN_UNLOCK_MINUTES, MAX_UNLOCK_MINUTES) ??
+    DEFAULT_PAUSE_MINUTES
+  );
+}
+
+/**
+ * @param {number} minutes
+ */
+export async function setPauseMinutes(minutes) {
+  const clamped =
+    clampMinutes(minutes, MIN_UNLOCK_MINUTES, MAX_UNLOCK_MINUTES) ??
+    DEFAULT_PAUSE_MINUTES;
+  await chrome.storage.sync.set({ pauseMinutes: clamped });
+}
 
 /**
  * Timestamp (ms) the global pause ends, or 0 if not paused / already elapsed.
