@@ -7,7 +7,11 @@
   --text: #e2e8f0;
   --muted: #94a3b8;
   --accent: #6366f1;
+  --accent-hover: #4f46e5;
   --danger: #ef4444;
+  --warn: #fbbf24;
+  /* Native parts (scrollbars, number steppers) render dark to match. */
+  color-scheme: dark;
 }
 
 /* The popup is a fixed 340 × 560px on every tab and view (README "Notes"), so
@@ -25,6 +29,15 @@ body {
   overflow: hidden;
 }
 
+/* Form controls don't inherit the page font by default; they'd fall back to the
+   browser's own (Arial on Windows) and clash with the labels around them. */
+button, input { font: inherit; color: inherit; }
+
+/* One indigo focus ring for every control. Fields draw it over their border. */
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.text-input:focus-visible,
+.number-input:focus-visible { outline-offset: -1px; }
+
 header {
   display: flex;
   align-items: center;
@@ -41,7 +54,6 @@ header h1 { font-size: 18px; font-weight: 700; }
   align-items: center;
   gap: 8px;
 }
-header .toggle { padding: 0; }
 .power-countdown {
   font-size: 13px;
   color: var(--muted);
@@ -49,8 +61,31 @@ header .toggle { padding: 0; }
   white-space: nowrap;
 }
 
-/* While Focus Guard is off, everything below the header dims (and is `inert`). */
+/* While Focus Guard is off, everything below the header dims (and is `inert`),
+   and a message is laid over the middle of it. */
 #app-body.is-disabled { opacity: 0.4; }
+.stage {
+  position: relative; /* anchors the off message */
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.off-notice {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 240px;
+  padding: 18px 20px;
+  background: var(--surface);
+  border: 1px solid var(--surface-2);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  text-align: center;
+}
+.off-notice-title { font-size: 15px; font-weight: 700; }
+.off-notice-sub { margin-top: 4px; font-size: 13px; color: var(--muted); }
 
 /* Tabs */
 .tabs {
@@ -73,7 +108,6 @@ header .toggle { padding: 0; }
 }
 .tab:hover { color: var(--text); }
 .tab:focus-visible {
-  outline: 2px solid var(--accent);
   outline-offset: -3px;
   border-radius: 4px;
 }
@@ -82,8 +116,8 @@ header .toggle { padding: 0; }
   border-bottom-color: var(--accent);
 }
 
-/* Everything below the header fills the rest of the fixed height; only the
-   active panel scrolls. */
+/* Below the header, the tabs stay put and the active panel takes the rest of
+   the fixed height, scrolling if a view needs more room. */
 #app-body {
   flex: 1;
   min-height: 0;
@@ -102,6 +136,10 @@ header .toggle { padding: 0; }
      rings. */
   margin: -4px -16px -16px;
   padding: 4px 16px 16px;
+}
+.panel.is-active, .item-list {
+  scrollbar-width: thin;
+  scrollbar-color: var(--surface-2) transparent;
 }
 
 section { margin-bottom: 22px; }
@@ -122,67 +160,60 @@ section h2 {
   margin-bottom: 16px;
 }
 .section-head h2 { margin-bottom: 0; }
-.section-head .toggle { padding: 0; }
 
-#add-form { display: flex; gap: 8px; margin-bottom: 12px; }
-#domain-input {
-  flex: 1;
-  background: var(--surface);
-  border: 1px solid var(--surface-2);
-  border-radius: 8px;
-  padding: 8px 10px;
-  color: var(--text);
-  font-size: 13px;
+/* A switch sitting beside a heading drops the row padding a toggle list has. */
+header .toggle,
+.section-head .toggle,
+.view-head .toggle { padding: 0; }
+
+/* A tab's main view fills the panel, so its "Change …" button sits at the
+   bottom of the popup. Main also centers its circle in the space above. */
+.main-view {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
 }
-#domain-input:focus { outline: none; border-color: var(--accent); }
-#add-form button {
-  background: var(--accent);
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  padding: 8px 14px;
-  font-weight: 600;
-  font-size: 13px;
-  cursor: pointer;
-}
-#add-form button:hover { background: #4f46e5; }
+.main-view > .wide-btn { margin-top: auto; }
 
 /* --- Current-tab action --- */
-#status-section { margin-bottom: 18px; }
+#status-section {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+}
 
 /* --- Big circular action control --- */
 #action-circle-wrap {
-  position: relative; /* positions the smaller 2× button beside the circle */
+  position: relative; /* anchors the pill row under the circle */
+  width: 100%; /* full width, so the pill row has room for its pills */
   display: flex;
   justify-content: center;
 }
 #action-circle {
   position: relative;
-  width: 150px;
-  height: 150px;
+  width: 180px;
+  height: 180px;
   border: none;
+  border-radius: 50%; /* round focus ring */
   background: transparent;
   padding: 0;
   cursor: pointer;
 }
-/* Inner tinted disc (state colour) */
+/* Inner disc: the same dark gray in every state; the ring carries the colour. */
 #action-circle::before {
   content: "";
   position: absolute;
-  inset: 16px;
+  inset: 20px;
   border-radius: 50%;
   background: var(--surface);
-  transition: background 0.15s, filter 0.15s;
+  transition: background 0.15s;
 }
-#action-circle.is-block::before     { background: rgba(99, 102, 241, 0.15); }
-#action-circle.is-unblock::before   { background: rgba(239, 68, 68, 0.15); }
-#action-circle.is-countdown::before { background: rgba(251, 191, 36, 0.12); }
-#action-circle.is-disabled::before  { background: var(--surface); }
-#action-circle:hover::before        { filter: brightness(1.5); }
+#action-circle:not(:disabled):hover::before { background: var(--surface-2); }
 
 /* Inert circle on pages that can't be blocked (chrome://, new tab, etc.) */
 #action-circle:disabled { cursor: default; opacity: 0.55; }
-#action-circle:disabled:hover::before { filter: none; }
 
 .ring {
   position: absolute;
@@ -194,12 +225,17 @@ section h2 {
 .ring-track {
   fill: none;
   stroke: var(--surface-2);
-  stroke-width: 8;
+  stroke-width: 6;
+  transition: stroke 0.15s;
 }
+/* State colour on the ring: indigo to block, red to unlock. The countdown keeps
+   the gray track under its amber progress arc. */
+#action-circle.is-block .ring-track   { stroke: var(--accent); }
+#action-circle.is-unblock .ring-track { stroke: var(--danger); }
 .ring-progress {
   fill: none;
-  stroke: #fbbf24;
-  stroke-width: 8;
+  stroke: var(--warn);
+  stroke-width: 6;
   stroke-linecap: round;
   stroke-dasharray: 339.292; /* 2 * PI * 54 */
   stroke-dashoffset: 0;
@@ -217,7 +253,7 @@ section h2 {
   pointer-events: none;
 }
 .circle-main {
-  font-size: 22px;
+  font-size: 26px;
   font-weight: 700;
   color: var(--text);
   font-variant-numeric: tabular-nums;
@@ -230,91 +266,77 @@ section h2 {
   letter-spacing: 0.06em;
 }
 
-/* --- Secondary multiplier unlock buttons (stacked in the gutter right of the
-   circle: 2× above, 3× below) --- */
-.mult-stack {
+/* --- Secondary unlock pills under the circle (2× and 3× in red, "+1 min" in
+   amber). The row hangs below the circle without taking up layout space, so
+   the circle stays centered and doesn't jump between states. --- */
+.pill-row {
   position: absolute;
-  top: 50%;
-  right: 4px;
-  transform: translateY(-50%);
+  top: calc(100% + 14px);
+  left: 0;
+  right: 0;
   display: flex;
-  flex-direction: column;
+  justify-content: center;
   gap: 8px;
 }
-.mult-btn {
-  width: 62px;
-  height: 62px;
-  border-radius: 50%;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  background: rgba(239, 68, 68, 0.15); /* matches the .is-unblock disc */
-  color: var(--text);
-  display: flex;
-  flex-direction: column;
+.pill-btn {
+  --pill-color: var(--danger);
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  gap: 1px;
-  transition: filter 0.15s;
+  gap: 6px;
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--pill-color) 50%, transparent);
+  background: var(--surface);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
 }
-.mult-btn:hover { filter: brightness(1.5); }
-/* "+1 minute" matches the amber countdown state instead of the red unblock disc. */
-#add-minute-btn { background: rgba(251, 191, 36, 0.18); }
-#add-minute-btn:disabled { opacity: 0.35; cursor: default; filter: none; }
-.mult-main {
-  font-size: 18px;
-  font-weight: 700;
-  line-height: 1.1;
+#add-minute-btn { --pill-color: var(--warn); }
+.pill-btn:not(:disabled):hover {
+  border-color: var(--pill-color);
+  background: var(--surface-2);
 }
-.mult-sub {
-  font-size: 9px;
+.pill-btn:disabled { opacity: 0.35; cursor: default; }
+.pill-main { font-size: 14px; font-weight: 700; }
+.pill-sub {
+  font-size: 12px;
   color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
   font-variant-numeric: tabular-nums;
 }
+.pill-sub::before { content: "·"; margin-right: 6px; }
 
-/* --- Sites sub-view navigation --- */
+/* --- Buttons: primary (solid indigo), secondary (.wide-btn), danger --- */
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+}
+.btn-primary:hover { background: var(--accent-hover); }
+
 .wide-btn {
   display: block;
   width: 100%;
-  margin-top: 18px;
   background: var(--surface);
   border: 1px solid var(--surface-2);
   border-radius: 8px;
-  color: var(--text);
   font-size: 13px;
   font-weight: 600;
   padding: 10px 12px;
   cursor: pointer;
+  transition: border-color 0.15s;
 }
 .wide-btn:hover { border-color: var(--accent); }
 .wide-btn:disabled { opacity: 0.4; cursor: default; }
 .wide-btn:disabled:hover { border-color: var(--surface-2); }
 
-.back-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  background: var(--surface);
-  border: 1px solid var(--surface-2);
-  border-radius: 10px;
-  color: var(--text);
-  font-size: 14px;
-  font-weight: 600;
-  padding: 10px 16px;
-  cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
-}
-.back-link .back-icon {
-  width: 18px;
-  height: 18px;
-  flex-shrink: 0;
-}
-.back-link:hover {
-  border-color: var(--accent);
-  background: var(--surface-2);
-}
+.danger-btn { color: var(--danger); }
+.danger-btn:hover { border-color: var(--danger); }
+.wide-btn.is-armed { border-color: var(--danger); color: var(--danger); }
 
 /* --- Sub-view sliding animation --- */
 @keyframes fg-slide-in-right {
@@ -332,67 +354,96 @@ section h2 {
   .slide-in-right, .slide-in-left { animation: none; }
 }
 
-/* --- Domain list --- */
-/* Long lists scroll on their own past 220px, so the controls around them (the
-   Back button, and the channel list's Enable toggle) stay in view. */
-#domain-list, #channel-list {
+/* --- List views (blocked sites, allowed channels) --- */
+/* A list view fills the panel: its heading, Back and Add field stay put, and the
+   list scrolls on its own once it runs out of room. */
+.list-view {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+#channels-editor {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* "← Heading" row at the top of a list view. */
+.view-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.view-head h2 { font-size: 15px; font-weight: 600; }
+.view-head .toggle { margin-left: auto; }
+.back-btn {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  margin-left: -6px; /* line the arrow up with the content's left edge */
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.back-btn svg { width: 18px; height: 18px; }
+.back-btn:hover { background: var(--surface); color: var(--text); }
+
+.add-form { display: flex; gap: 8px; margin-bottom: 12px; }
+.text-input {
+  flex: 1;
+  min-width: 0;
+  background: var(--surface);
+  border: 1px solid var(--surface-2);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 13px;
+}
+
+.item-list {
   list-style: none;
   display: flex;
   flex-direction: column;
   gap: 6px;
-  max-height: 220px;
+  min-height: 0;
   overflow-y: auto;
 }
-#domain-list li, #channel-list li {
+.item-list li {
   display: flex;
   align-items: center;
   gap: 6px;
   background: var(--surface);
   border-radius: 8px;
-  padding: 8px 12px;
+  padding: 6px 6px 6px 12px;
   font-size: 13px;
-  font-family: ui-monospace, "SF Mono", Menlo, monospace;
 }
-#domain-list li.is-snoozed { opacity: 0.5; }
-
-.domain-text { flex: 1; }
-#channel-list li span { flex: 1; }
-
-#channel-list { padding-right: 4px; }
-
-#domain-list .btn-remove, #channel-list button {
+.item-list li.is-snoozed { opacity: 0.5; }
+.item-list li > span {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere; /* long names wrap rather than overflow */
+}
+/* The ✕ stays quiet until you point at it. */
+.item-list li > button {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
   background: transparent;
   border: none;
-  color: var(--danger);
-  cursor: pointer;
-  font-size: 15px;
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 12px;
   line-height: 1;
-  padding: 0 3px;
-}
-#domain-list .btn-remove:hover, #channel-list button:hover { color: #f87171; }
-
-#channel-form { display: flex; gap: 8px; margin-bottom: 12px; }
-#channel-input {
-  flex: 1;
-  background: var(--surface);
-  border: 1px solid var(--surface-2);
-  border-radius: 8px;
-  padding: 8px 10px;
-  color: var(--text);
-  font-size: 13px;
-}
-#channel-input:focus { outline: none; border-color: var(--accent); }
-#channel-form button {
-  background: var(--accent);
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  padding: 8px 14px;
-  font-weight: 600;
-  font-size: 13px;
   cursor: pointer;
 }
-#channel-form button:hover { background: #4f46e5; }
+.item-list li > button:hover { color: var(--danger); background: var(--surface-2); }
 
 .empty { color: var(--muted); font-size: 13px; font-style: italic; }
 .hint { color: var(--muted); font-size: 12px; line-height: 1.5; margin-top: 8px; }
@@ -407,31 +458,21 @@ section h2 {
   gap: 10px;
   font-size: 14px;
 }
-#unlock-input,
-#pause-input {
-  width: 64px;
+.setting-row + .setting-row { margin-top: 10px; }
+.number-input {
+  width: 76px; /* room for "1440" beside the stepper */
   background: var(--surface);
   border: 1px solid var(--surface-2);
   border-radius: 8px;
-  padding: 8px 12px;
-  color: var(--text);
+  /* Chrome keeps room for the stepper arrows on the right, so pad the left by
+     about as much to keep the centered number in the middle of the field. */
+  padding: 8px 4px 8px 18px;
   font-size: 14px;
-  text-align: left;
-  /* Render the native stepper in dark mode, so it keeps its up/down arrows but
-     drops the white background block (and the arrows match the dark field). */
-  color-scheme: dark;
+  text-align: center;
 }
-#unlock-input:focus,
-#pause-input:focus { outline: none; border-color: var(--accent); }
 
-/* Settings buttons sit directly under their section heading, so drop the big
-   top margin a lone wide-btn carries and only space stacked buttons apart. */
-[data-panel="settings"] .wide-btn { margin-top: 0; }
-[data-panel="settings"] .wide-btn + .wide-btn { margin-top: 8px; }
-
-.danger-btn { color: var(--danger); }
-.danger-btn:hover { border-color: var(--danger); }
-.wide-btn.is-armed { border-color: var(--danger); color: var(--danger); }
+/* Buttons that share a row split it evenly. */
+.btn-row { display: flex; gap: 8px; }
 
 .settings-status { font-size: 12px; min-height: 16px; margin-top: 6px; }
 .settings-status.is-ok { color: #4ade80; }

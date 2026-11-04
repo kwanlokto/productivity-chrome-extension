@@ -118,6 +118,16 @@ test("while off, everything below the header is dimmed and can't be used", async
   await expect(manageBtn).not.toBeFocused();
 });
 
+test("while off, a message says so and how to turn it back on", async ({ openPopup }) => {
+  const popup = await openPopup({ local: { pausedUntil: Date.now() + 10 * 60_000 } });
+
+  await expect(popup.getByText("Focus Guard is off", { exact: true })).toBeVisible();
+  await expect(popup.getByText("Flip the switch to turn it back on")).toBeVisible();
+
+  await popup.getByRole("switch", { name: "Turn Focus Guard back on" }).click();
+  await expect(popup.getByText("Focus Guard is off", { exact: true })).toBeHidden();
+});
+
 test("while off, the Main tab's circle just says Off", async ({ openPopup }) => {
   const popup = await openPopup({ local: { pausedUntil: Date.now() + 10 * 60_000 } });
 

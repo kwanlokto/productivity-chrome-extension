@@ -6,7 +6,7 @@ import { getPauseMinutes, getPausedUntil } from "./storage.js";
 import { formatClock } from "./util.js";
 
 // DOM refs (populated in initHeaderView).
-let powerSwitch, countdownEl, appBody;
+let powerSwitch, countdownEl, appBody, offNotice;
 
 // Handle for the live "m:ss left" interval, so we can cancel it on re-render.
 let countdownTimer = null;
@@ -54,6 +54,7 @@ async function render() {
   // keyboard focus, and assistive tech, so nothing there looks usable.
   appBody.classList.toggle("is-disabled", !on);
   appBody.inert = !on;
+  offNotice.classList.toggle("hidden", on);
 
   countdownEl.classList.toggle("hidden", on);
   if (!on) startCountdown(pausedUntil);
@@ -92,6 +93,7 @@ export function initHeaderView() {
   powerSwitch = document.getElementById("power-switch");
   countdownEl = document.getElementById("power-countdown");
   appBody = document.getElementById("app-body");
+  offNotice = document.getElementById("off-notice");
 
   powerSwitch.addEventListener("change", () => {
     if (powerSwitch.checked) {

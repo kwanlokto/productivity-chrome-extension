@@ -74,9 +74,9 @@ To add a YouTube toggle:
 
 `popup.js` wires the tab navigation and calls each view's `init*`. The views (`sites-view.js`, `youtube-view.js`, `settings-view.js`) contain the DOM code. They call `actions.js`, which combines storage, rules, and tabs operations and contains no DOM code. The views then re-render, and they also subscribe to `chrome.storage.onChanged` so changes made elsewhere show up.
 
-`header-view.js` owns the header's on/off switch for the whole extension (the `pausedUntil` pause), which applies across all tabs. While the extension is paused, it dims `#app-body` (everything below the header) and sets `inert` on it, so nothing there can be clicked, focused, or read by assistive tech. Controls inside the tabs therefore don't need their own "paused" handling.
+`header-view.js` owns the header's on/off switch for the whole extension (the `pausedUntil` pause), which applies across all tabs. While the extension is paused, it dims `#app-body` (everything below the header) and sets `inert` on it, so nothing there can be clicked, focused, or read by assistive tech. It also shows the `#off-notice` message over the dimmed area; the notice sits outside `#app-body` so it isn't dimmed or inert itself. Controls inside the tabs therefore don't need their own "paused" handling.
 
-**Fixed popup size:** the popup is a fixed 340 × 560px on every tab and view, so it never jumps in size as you switch tabs. If a view needs more room, it scrolls inside the area below the tab bar (the active `.panel`); the header and tabs stay put. Long lists scroll on their own at 220px so the controls around them stay visible. Don't change the size without updating this rule, the README's Notes, and `tests/popup-size.spec.js`, which enforces it.
+**Fixed popup size:** the popup is a fixed 340 × 560px on every tab and view, so it never jumps in size as you switch tabs. If a view needs more room, it scrolls inside the area below the tab bar (the active `.panel`); the header and tabs stay put. The list views (blocked sites, allowed channels) fill the panel instead: their "← heading" row and Add field stay put, and the list scrolls on its own. Don't change the size without updating this rule, the README's Notes, and `tests/popup-size.spec.js`, which enforces it.
 
 ### Tests
 

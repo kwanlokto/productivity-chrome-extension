@@ -42,6 +42,12 @@ test("a long blocked-sites list scrolls on its own, keeping Back in view", async
 
   await expect(popup.getByText("site1.com", { exact: true })).toBeInViewport();
   await expect(popup.getByText("site30.com", { exact: true })).not.toBeInViewport();
+
+  // Scrolling to the end moves only the list: Back and the Add field stay put.
+  await popup.getByText("site30.com", { exact: true }).scrollIntoViewIfNeeded();
+  await expect(popup.getByText("site30.com", { exact: true })).toBeInViewport();
+  await expect(popup.getByText("site1.com", { exact: true })).not.toBeInViewport();
   await expect(popup.getByRole("button", { name: "Back" })).toBeInViewport();
+  await expect(popup.getByPlaceholder("add a domain, e.g. reddit.com")).toBeInViewport();
   await expect.poll(() => popupSize(popup)).toEqual(POPUP_SIZE);
 });

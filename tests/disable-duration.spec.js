@@ -13,7 +13,8 @@ async function openSettings(openPopup, seed) {
 test("Settings shows the disable duration, 15 minutes by default", async ({ openPopup }) => {
   const popup = await openSettings(openPopup);
 
-  await expect(popup.getByRole("heading", { name: "Disable duration" })).toBeVisible();
+  await expect(popup.getByRole("heading", { name: "Durations" })).toBeVisible();
+  await expect(popup.getByText("Minutes off", { exact: true })).toBeVisible();
   await expect(
     popup.getByRole("spinbutton", { name: "Disable duration in minutes" }),
   ).toHaveValue("15");

@@ -19,6 +19,9 @@
     </div>
   </header>
 
+  <!-- Everything below the header, with the "off" message laid over it. -->
+  <div class="stage">
+
   <!-- Everything below the header: dimmed and inert while Focus Guard is off. -->
   <div id="app-body">
 
@@ -30,8 +33,9 @@
 
   <div class="panel is-active" id="panel-sites" data-panel="sites" role="tabpanel" aria-labelledby="tab-sites">
 
-    <!-- Main view: current-tab action circle + entry to the list editor -->
-    <div id="sites-main">
+    <!-- Main view: the current-tab action circle, centered in the free space,
+         with the entry to the list editor pinned to the bottom. -->
+    <div id="sites-main" class="main-view">
       <section id="status-section">
         <!-- One big circular control whose label + action depend on state -->
         <div id="action-circle-wrap" class="hidden">
@@ -45,21 +49,20 @@
               <span class="circle-sub" id="circle-sub"></span>
             </span>
           </button>
-          <!-- Secondary unlocks: multiples of the configured duration, stacked in
-               the gutter right of the main circle (2× above, 3× below). Only
-               shown on a blocked site (the "Unlock" state). -->
-          <div class="mult-stack">
-            <button id="action-circle-2x" type="button" class="mult-btn hidden" aria-label="Unlock for 2× the duration">
-              <span class="mult-main">2×</span>
-              <span class="mult-sub" id="circle-2x-sub"></span>
+          <!-- Secondary unlocks: a row of pills under the circle. 2× and 3× (multiples
+               of the configured duration) show on a blocked site (the "Unlock"
+               state); "+1 min" shows during the countdown. -->
+          <div class="pill-row">
+            <button id="action-circle-2x" type="button" class="pill-btn hidden" aria-label="Unlock for 2× the duration">
+              <span class="pill-main">2×</span>
+              <span class="pill-sub" id="circle-2x-sub"></span>
             </button>
-            <button id="action-circle-3x" type="button" class="mult-btn hidden" aria-label="Unlock for 3× the duration">
-              <span class="mult-main">3×</span>
-              <span class="mult-sub" id="circle-3x-sub"></span>
+            <button id="action-circle-3x" type="button" class="pill-btn hidden" aria-label="Unlock for 3× the duration">
+              <span class="pill-main">3×</span>
+              <span class="pill-sub" id="circle-3x-sub"></span>
             </button>
-            <button id="add-minute-btn" type="button" class="mult-btn hidden" aria-label="Add one minute">
-              <span class="mult-main">+1</span>
-              <span class="mult-sub">min</span>
+            <button id="add-minute-btn" type="button" class="pill-btn hidden" aria-label="Add one minute">
+              <span class="pill-main">+1 min</span>
             </button>
           </div>
         </div>
@@ -69,33 +72,31 @@
     </div>
 
     <!-- Manage view: add/remove blocked sites -->
-    <div id="sites-manage" class="hidden">
-      <section>
-        <div class="section-head">
-          <h2>Blocked sites</h2>
-        </div>
-        <form id="add-form">
-          <input id="domain-input" type="text" placeholder="add a domain, e.g. reddit.com" autocomplete="off" />
-          <button type="submit">Add</button>
-        </form>
-        <ul id="domain-list"></ul>
-        <p id="empty" class="empty hidden">No sites blocked yet.</p>
-      </section>
-      <button id="back-to-main" class="back-link">
-        <svg class="back-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M19 12H5" />
-          <path d="M11 18l-6-6 6-6" />
-        </svg>
-        Back
-      </button>
+    <div id="sites-manage" class="list-view hidden">
+      <div class="view-head">
+        <button id="back-to-main" type="button" class="back-btn" aria-label="Back" title="Back">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M19 12H5" />
+            <path d="M11 18l-6-6 6-6" />
+          </svg>
+        </button>
+        <h2>Blocked sites</h2>
+      </div>
+      <form id="add-form" class="add-form">
+        <input id="domain-input" class="text-input" type="text" placeholder="add a domain, e.g. reddit.com" autocomplete="off" />
+        <button type="submit" class="btn-primary">Add</button>
+      </form>
+      <ul id="domain-list" class="item-list"></ul>
+      <p id="empty" class="empty hidden">No sites blocked yet.</p>
     </div>
 
   </div>
 
   <div class="panel" id="panel-youtube" data-panel="youtube" role="tabpanel" aria-labelledby="tab-youtube">
 
-    <!-- Main view: focus toggles + entry to the channel editor -->
-    <div id="youtube-main">
+    <!-- Main view: focus toggles, with the entry to the channel editor pinned to
+         the bottom. -->
+    <div id="youtube-main" class="main-view">
       <section>
         <div class="section-head">
           <h2>YouTube focus</h2>
@@ -124,30 +125,27 @@
     </div>
 
     <!-- Manage view: add/remove allowed channels -->
-    <div id="youtube-manage" class="hidden">
-      <section id="channels-section">
-        <div class="section-head">
-          <h2>Allowed channels</h2>
-          <label class="toggle">
-            <input type="checkbox" data-yt="allowedChannelsOnly" aria-label="Only show allowed channels" />
-          </label>
-        </div>
-        <div id="channels-editor">
-          <form id="channel-form">
-            <input id="channel-input" type="text" placeholder="add a channel, e.g. @veritasium" autocomplete="off" />
-            <button type="submit">Add</button>
-          </form>
-          <ul id="channel-list"></ul>
-          <p id="channel-empty" class="empty hidden">No channels allowed yet — everything will be hidden.</p>
-        </div>
-      </section>
-      <button id="back-to-youtube" class="back-link">
-        <svg class="back-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M19 12H5" />
-          <path d="M11 18l-6-6 6-6" />
-        </svg>
-        Back
-      </button>
+    <div id="youtube-manage" class="list-view hidden">
+      <div class="view-head">
+        <button id="back-to-youtube" type="button" class="back-btn" aria-label="Back" title="Back">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M19 12H5" />
+            <path d="M11 18l-6-6 6-6" />
+          </svg>
+        </button>
+        <h2>Allowed channels</h2>
+        <label class="toggle">
+          <input type="checkbox" data-yt="allowedChannelsOnly" aria-label="Only show allowed channels" />
+        </label>
+      </div>
+      <div id="channels-editor">
+        <form id="channel-form" class="add-form">
+          <input id="channel-input" class="text-input" type="text" placeholder="add a channel, e.g. @veritasium" autocomplete="off" />
+          <button type="submit" class="btn-primary">Add</button>
+        </form>
+        <ul id="channel-list" class="item-list"></ul>
+        <p id="channel-empty" class="empty hidden">No channels allowed yet — everything will be hidden.</p>
+      </div>
     </div>
 
   </div>
@@ -156,21 +154,15 @@
 
     <section>
       <div class="section-head">
-        <h2>Unlock duration</h2>
+        <h2>Durations</h2>
       </div>
       <div class="setting-row">
         <span>Minutes per unlock</span>
-        <input id="unlock-input" type="number" min="1" max="1440" step="1" inputmode="numeric" aria-label="Unlock duration in minutes" />
-      </div>
-    </section>
-
-    <section>
-      <div class="section-head">
-        <h2>Disable duration</h2>
+        <input id="unlock-input" class="number-input" type="number" min="1" max="1440" step="1" inputmode="numeric" aria-label="Unlock duration in minutes" />
       </div>
       <div class="setting-row">
         <span>Minutes off</span>
-        <input id="pause-input" type="number" min="1" max="1440" step="1" inputmode="numeric" aria-label="Disable duration in minutes" />
+        <input id="pause-input" class="number-input" type="number" min="1" max="1440" step="1" inputmode="numeric" aria-label="Disable duration in minutes" />
       </div>
     </section>
 
@@ -178,8 +170,10 @@
       <div class="section-head">
         <h2>Backup &amp; restore</h2>
       </div>
-      <button id="export-btn" type="button" class="wide-btn">Save settings</button>
-      <button id="import-btn" type="button" class="wide-btn">Load settings</button>
+      <div class="btn-row">
+        <button id="export-btn" type="button" class="wide-btn">Save settings</button>
+        <button id="import-btn" type="button" class="wide-btn">Load settings</button>
+      </div>
       <input id="import-file" type="file" accept="application/json,.json" hidden />
     </section>
 
@@ -195,6 +189,15 @@
   </div>
 
   </div><!-- /#app-body -->
+
+  <!-- Shown over the dimmed area while Focus Guard is off. It sits outside
+       #app-body so it isn't dimmed or inert itself. -->
+  <div id="off-notice" class="off-notice hidden" role="status">
+    <p class="off-notice-title">Focus Guard is off</p>
+    <p class="off-notice-sub">Flip the switch to turn it back on</p>
+  </div>
+
+  </div><!-- /.stage -->
 
   <script type="module" src="popup.js"></script>
 </body>

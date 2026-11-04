@@ -48,11 +48,9 @@ function renderDomains(domains, snoozed) {
     if (snoozed[domain]) li.classList.add("is-snoozed");
 
     const span = document.createElement("span");
-    span.className = "domain-text";
     span.textContent = domain;
 
     const removeBtn = document.createElement("button");
-    removeBtn.className = "btn-remove";
     removeBtn.title = "Remove";
     removeBtn.textContent = "✕";
     removeBtn.addEventListener("click", () =>

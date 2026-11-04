@@ -23,7 +23,8 @@ distracting sites and taming YouTube's doom-scroll machinery.
 - **On/off switch** — The switch in the popup header turns all of Focus Guard (site
   blocking and YouTube tweaks) off for a set number of minutes, then it turns
   itself back on. While it's off, the header counts down the time left and the
-  rest of the popup is grayed out. Flip it back on to end the break early.
+  rest of the popup is grayed out under a "Focus Guard is off" message. Flip it
+  back on to end the break early.
 - **Settings tab** — Change how long "Unlock" lifts a block for and how long the
   on/off switch turns Focus Guard off for, save your settings to a JSON file, load
   them back, or reset everything to defaults.
@@ -167,7 +168,9 @@ This extension requests broad access, so the dashboard will require you to justi
 
 - **The popup is a fixed 340 × 560px** on every tab and view, so it never jumps in
   size as you switch tabs. If a view needs more room, it scrolls inside the area
-  below the tab bar; the header and tabs stay put. Don't change the size without
+  below the tab bar; the header and tabs stay put. The blocked-sites and
+  allowed-channels lists fill the space under their heading and scroll on their
+  own, so Back and the Add field stay in view. Don't change the size without
   updating this rule (and the test that enforces it,
   [tests/popup-size.spec.js](tests/popup-size.spec.js)).
 - YouTube changes its markup often; if an element stops being hidden, the selectors
