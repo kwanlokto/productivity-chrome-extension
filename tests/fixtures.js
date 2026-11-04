@@ -24,10 +24,20 @@ export const test = base.extend({
     await context.close();
   },
 
-  /** The extension's background service worker. */
+  /** The extension's background service worker, once its install seeding is done. */
   background: async ({ context }, use) => {
     let [worker] = context.serviceWorkers();
     if (!worker) worker = await context.waitForEvent("serviceworker");
+    // onInstalled seeds default settings; wait for it so it can't overwrite a
+    // test's own seed (it only fills keys that are still unset when it runs).
+    await expect
+      .poll(() =>
+        worker.evaluate(async () => {
+          const { blockedDomains } = await chrome.storage.sync.get("blockedDomains");
+          return blockedDomains !== undefined;
+        }),
+      )
+      .toBe(true);
     await use(worker);
   },
 

@@ -10,13 +10,19 @@
   --danger: #ef4444;
 }
 
+/* The popup is a fixed 340 × 560px on every tab and view (README "Notes"), so
+   it never jumps in size. A view that needs more room scrolls inside its panel;
+   the header and tabs stay put. */
 body {
   width: 340px;
+  height: 560px;
+  display: flex;
+  flex-direction: column;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   background: var(--bg);
   color: var(--text);
   padding: 16px;
-  overflow-x: hidden; /* clip the sub-view slide-in animation */
+  overflow: hidden;
 }
 
 header {
@@ -76,8 +82,27 @@ header .toggle { padding: 0; }
   border-bottom-color: var(--accent);
 }
 
+/* Everything below the header fills the rest of the fixed height; only the
+   active panel scrolls. */
+#app-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
 .panel { display: none; }
-.panel.is-active { display: block; }
+.panel.is-active {
+  display: block;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden; /* clip the sub-view slide-in animation */
+  /* Stretch the scroll area over the body's padding to the popup's edges, then
+     pad back in: content stays put, but the clip edge leaves room for focus
+     rings. */
+  margin: -4px -16px -16px;
+  padding: 4px 16px 16px;
+}
 
 section { margin-bottom: 22px; }
 .panel section:last-child { margin-bottom: 0; }
@@ -130,7 +155,6 @@ section h2 {
   position: relative; /* positions the smaller 2× button beside the circle */
   display: flex;
   justify-content: center;
-  margin-top: 16px;
 }
 #action-circle {
   position: relative;
@@ -309,7 +333,16 @@ section h2 {
 }
 
 /* --- Domain list --- */
-#domain-list, #channel-list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+/* Long lists scroll on their own past 220px, so the controls around them (the
+   Back button, and the channel list's Enable toggle) stay in view. */
+#domain-list, #channel-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 220px;
+  overflow-y: auto;
+}
 #domain-list li, #channel-list li {
   display: flex;
   align-items: center;
@@ -325,13 +358,7 @@ section h2 {
 .domain-text { flex: 1; }
 #channel-list li span { flex: 1; }
 
-/* Only the channel list scrolls — keeps the header, tabs and Enable toggle in
-   view instead of the whole popup growing tall. */
-#channel-list {
-  max-height: 220px;
-  overflow-y: auto;
-  padding-right: 4px;
-}
+#channel-list { padding-right: 4px; }
 
 #domain-list .btn-remove, #channel-list button {
   background: transparent;

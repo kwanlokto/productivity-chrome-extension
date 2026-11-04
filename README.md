@@ -165,6 +165,11 @@ This extension requests broad access, so the dashboard will require you to justi
 
 ## Notes
 
+- **The popup is a fixed 340 × 560px** on every tab and view, so it never jumps in
+  size as you switch tabs. If a view needs more room, it scrolls inside the area
+  below the tab bar; the header and tabs stay put. Don't change the size without
+  updating this rule (and the test that enforces it,
+  [tests/popup-size.spec.js](tests/popup-size.spec.js)).
 - YouTube changes its markup often; if an element stops being hidden, the selectors
   in [content/youtube.css](content/youtube.css) may need updating.
 - Domain blocking matches the domain and all subdomains (e.g. blocking `facebook.com`

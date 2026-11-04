@@ -76,10 +76,12 @@ To add a YouTube toggle:
 
 `header-view.js` owns the header's on/off switch for the whole extension (the `pausedUntil` pause), which applies across all tabs. While the extension is paused, it dims `#app-body` (everything below the header) and sets `inert` on it, so nothing there can be clicked, focused, or read by assistive tech. Controls inside the tabs therefore don't need their own "paused" handling.
 
+**Fixed popup size:** the popup is a fixed 340 × 560px on every tab and view, so it never jumps in size as you switch tabs. If a view needs more room, it scrolls inside the area below the tab bar (the active `.panel`); the header and tabs stay put. Long lists scroll on their own at 220px so the controls around them stay visible. Don't change the size without updating this rule, the README's Notes, and `tests/popup-size.spec.js`, which enforces it.
+
 ### Tests
 
 `tests/fixtures.js` starts a fresh Chromium profile per test, with the repo root loaded unpacked:
-- The `openPopup({ sync, local })` fixture seeds `chrome.storage` through the background service worker, then opens `popup/popup.html` in a tab.
+- The `openPopup({ sync, local })` fixture seeds `chrome.storage` through the background service worker, then opens `popup/popup.html` in a tab. Seeding waits until the extension's install-time defaults are written, so they can't overwrite a test's seed.
 - The `readStorage(area, keys)` fixture reads storage back.
 
 Two consequences of opening the popup as a tab rather than as a real popup:
