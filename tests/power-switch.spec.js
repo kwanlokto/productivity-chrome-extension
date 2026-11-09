@@ -2,18 +2,9 @@
 
 import { test, expect } from "./fixtures.js";
 
-/**
- * Everything below the header. Dimming is purely visual (no role or label
- * exposes it), so this is the one place these tests reach for an id.
- */
-const belowHeader = (popup) => popup.locator("#app-body");
-
-/**
- * The Main tab's circle while it reads "Off". `includeHidden` because the
- * dimmed area is `inert`, which hides it from the accessibility tree.
- */
-const offCircle = (popup) =>
-  popup.getByRole("button", { name: "Off", exact: true, includeHidden: true });
+/** The break countdown the Sites tab's circle shows while off. */
+const breakCircle = (popup) =>
+  popup.getByRole("button", { name: /^\d+:\d\d until back on$/ });
 
 test("the switch is on by default and offers a 15-minute break", async ({ openPopup }) => {
   const popup = await openPopup();
@@ -43,7 +34,8 @@ test("flipping the switch off turns Focus Guard off for the set minutes", async 
   const power = popup.getByRole("switch", { name: "Turn Focus Guard back on" });
   await expect(power).not.toBeChecked();
   await expect(power).toHaveAttribute("title", "Turn Focus Guard back on");
-  await expect(popup.getByText(/^1[45]:\d\d left$/)).toBeVisible();
+  await expect(popup.getByText("Focus Guard is off · nothing is blocked")).toBeVisible();
+  await expect(breakCircle(popup)).toHaveAccessibleName(/^1[45]:\d\d until back on$/);
 
   const { pausedUntil } = await readStorage("local", "pausedUntil");
   expect(pausedUntil).toBeGreaterThanOrEqual(before + 15 * 60_000);
@@ -61,9 +53,20 @@ test("flipping the switch back on turns Focus Guard on straight away", async ({
   await expect(
     popup.getByRole("switch", { name: "Turn Focus Guard off for 15 min" }),
   ).toBeChecked();
-  await expect(popup.getByText(/^\d+:\d\d left$/)).toBeHidden();
-  await expect(belowHeader(popup)).toHaveCSS("opacity", "1");
-  await expect(offCircle(popup)).toHaveCount(0);
+  await expect(breakCircle(popup)).toHaveCount(0);
+  await expect(popup.getByRole("button", { name: /^Blocked sites/ })).toBeEnabled();
+  expect(await readStorage("local", "pausedUntil")).toEqual({});
+});
+
+test("Turn on now ends the break", async ({ openPopup, readStorage }) => {
+  const popup = await openPopup({ local: { pausedUntil: Date.now() + 10 * 60_000 } });
+
+  await popup.getByRole("button", { name: "Turn on now" }).click();
+
+  await expect(
+    popup.getByRole("switch", { name: "Turn Focus Guard off for 15 min" }),
+  ).toBeChecked();
+  await expect(popup.getByRole("button", { name: "Turn on now" })).toBeHidden();
   expect(await readStorage("local", "pausedUntil")).toEqual({});
 });
 
@@ -76,8 +79,8 @@ test("when the time runs out, the open popup turns back on by itself", async ({
   await expect(
     popup.getByRole("switch", { name: "Turn Focus Guard off for 15 min" }),
   ).toBeChecked({ timeout: 6_000 });
-  await expect(belowHeader(popup)).toHaveCSS("opacity", "1");
-  await expect(offCircle(popup)).toHaveCount(0);
+  await expect(breakCircle(popup)).toHaveCount(0);
+  await expect(popup.getByRole("tab", { name: "YouTube" })).toBeVisible();
 });
 
 test("when the resume alarm ends the pause, the open popup turns back on", async ({
@@ -93,48 +96,51 @@ test("when the resume alarm ends the pause, the open popup turns back on", async
   await expect(
     popup.getByRole("switch", { name: "Turn Focus Guard off for 15 min" }),
   ).toBeChecked();
-  await expect(belowHeader(popup)).toHaveCSS("opacity", "1");
+  await expect(breakCircle(popup)).toHaveCount(0);
 });
 
-test("while off, everything below the header is dimmed and can't be used", async ({
+test("while off, the tabs and the blocked-sites list can't be used", async ({
   openPopup,
 }) => {
   const popup = await openPopup({ local: { pausedUntil: Date.now() + 10 * 60_000 } });
   await expect(popup.getByRole("switch", { name: "Turn Focus Guard back on" })).toBeVisible();
 
-  await expect(belowHeader(popup)).toHaveCSS("opacity", "0.4");
-
-  // Clicking another tab doesn't switch to it. (`includeHidden`: see offCircle.)
+  // Clicking another tab doesn't switch to it. `includeHidden` because the tabs
+  // are `inert`, which hides them from the accessibility tree.
   const youtubeTab = popup.getByRole("tab", { name: "YouTube", includeHidden: true });
   await youtubeTab.click({ force: true });
   await expect(youtubeTab).toHaveAttribute("aria-selected", "false");
 
-  // Controls can't take keyboard focus.
-  const manageBtn = popup.getByRole("button", {
-    name: "Change blocked sites",
-    includeHidden: true,
-  });
-  await manageBtn.focus();
-  await expect(manageBtn).not.toBeFocused();
+  await expect(popup.getByRole("button", { name: /^Blocked sites/ })).toBeDisabled();
 });
 
-test("while off, a message says so and how to turn it back on", async ({ openPopup }) => {
-  const popup = await openPopup({ local: { pausedUntil: Date.now() + 10 * 60_000 } });
+test("switching off from another tab shows the break on the Sites tab", async ({
+  openPopup,
+}) => {
+  const popup = await openPopup();
+  await popup.getByRole("tab", { name: "Settings" }).click();
 
-  await expect(popup.getByText("Focus Guard is off", { exact: true })).toBeVisible();
-  await expect(popup.getByText("Flip the switch to turn it back on")).toBeVisible();
+  await popup.getByRole("switch", { name: "Turn Focus Guard off for 15 min" }).click();
 
-  await popup.getByRole("switch", { name: "Turn Focus Guard back on" }).click();
-  await expect(popup.getByText("Focus Guard is off", { exact: true })).toBeHidden();
+  await expect(
+    popup.getByRole("tab", { name: "Sites", includeHidden: true }),
+  ).toHaveAttribute("aria-selected", "true");
+  await expect(breakCircle(popup)).toBeVisible();
 });
 
-test("while off, the Main tab's circle just says Off", async ({ openPopup }) => {
-  const popup = await openPopup({ local: { pausedUntil: Date.now() + 10 * 60_000 } });
+test("switching off closes the blocked-sites list", async ({ openPopup }) => {
+  const popup = await openPopup();
+  await popup.getByRole("button", { name: /^Blocked sites/ }).click();
+  const back = popup.getByRole("button", { name: "Back", exact: true });
+  await expect(back).toBeVisible();
 
-  await expect(offCircle(popup)).toBeVisible();
+  await popup.getByRole("switch", { name: "Turn Focus Guard off for 15 min" }).click();
+
+  await expect(breakCircle(popup)).toBeVisible();
+  await expect(back).toBeHidden();
 });
 
-test("the Main tab no longer has its own Disable controls", async ({ openPopup }) => {
+test("the Sites tab has no other on/off controls", async ({ openPopup }) => {
   const popup = await openPopup();
   await expect(popup.getByRole("switch")).toHaveCount(1);
 

@@ -147,114 +147,145 @@ async function releaseAllBlockedTabs() {
   }
 }
 
-// --- Auto-open countdown ---
-// In the final 30s before a snooze expires we open the popup (which shows the
-// countdown circle) — but ONLY when the active tab is on the very site that's
-// expiring. Nagging about facebook.com while you're reading YouTube makes no
-// sense. Chrome can't pin a popup open, so we reopen it (while still on that site)
-// whenever it closes or focus/tabs change.
-
-const OPEN_AT_30_MS = 30_000;
-const OPEN30_ALARM = "open-30";
-
-// Whether the popup is currently open, tracked via a runtime port it connects on
-// load (see popup/popup.js).
-let popupOpen = false;
-chrome.runtime.onConnect.addListener((port) => {
-  if (port.name !== "popup") return;
-  popupOpen = true;
-  port.onDisconnect.addListener(() => {
-    popupOpen = false;
-    setTimeout(reopenIfRelevant, 200); // keep it up while on the expiring site
-  });
-});
-
-// Reopen when the user returns to the expiring site (window focus / tab switch /
-// in-tab navigation). reopenIfRelevant() gates on the active tab's domain.
-chrome.windows.onFocusChanged.addListener((windowId) => {
-  if (windowId === chrome.windows.WINDOW_ID_NONE) return;
-  reopenIfRelevant();
-});
-chrome.tabs.onActivated.addListener(() => reopenIfRelevant());
-chrome.tabs.onUpdated.addListener((_id, changeInfo, tab) => {
-  if (tab.active && changeInfo.status === "complete") reopenIfRelevant();
-});
-
-/** Soonest expiry among active snoozes, or null if none. */
-async function getNearestExpiry() {
-  const snoozed = await getSnoozed();
-  const expiries = Object.values(snoozed).map(expiryOf);
-  return expiries.length ? Math.min(...expiries) : null;
+/**
+ * End the unlocks of domains that are no longer on the blocked list (removed in
+ * the popup, dropped by an imported file, or removed on another synced device),
+ * so their badge and re-block alarm don't outlive them.
+ */
+async function dropOrphanedSnoozes() {
+  // Read the unlocks before the list: an unlock is only ever added for a domain
+  // already on the list, so this order can't drop one that was just added.
+  const { snoozed = {} } = await chrome.storage.local.get("snoozed");
+  const { blockedDomains = DEFAULT_BLOCKED } = await chrome.storage.sync.get("blockedDomains");
+  const orphans = Object.keys(snoozed).filter((d) => !blockedDomains.includes(d));
+  if (orphans.length === 0) return;
+  for (const domain of orphans) {
+    delete snoozed[domain];
+    await chrome.alarms.clear("snooze:" + domain);
+  }
+  await setSnoozed(snoozed);
 }
 
-/** The active tab's bare domain (or "" if none/unavailable). */
-async function activeTabDomain() {
-  try {
-    const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
-    return tab?.url ? normalizeDomain(tab.url) : "";
-  } catch {
-    return "";
-  }
+// --- Toolbar badge ---
+// While a site is unlocked, its tabs show the time left on the toolbar icon:
+// whole minutes ("5m" … "1m"), then seconds ("59s" … "1s") in the last minute.
+// Other tabs show nothing. The popup never opens by itself.
+
+const BADGE_ALARM = "badge-tick";
+
+/** Alarms from earlier versions that may still be scheduled after an update. */
+const RETIRED_ALARMS = ["open-30"];
+
+/** Last text set per tab, so a tick only touches badges that change. */
+const badgeTexts = new Map();
+
+// Short waits (under the 30s minimum alarm delay) use a timer; the worker is
+// still awake then because it just ran.
+let badgeTimer = null;
+
+chrome.action.setBadgeBackgroundColor({ color: "#f59e0b" });
+chrome.action.setBadgeTextColor?.({ color: "#111827" });
+
+/**
+ * @param {number} remaining ms left on an unlock
+ * @returns {string} e.g. "5m", or "42s" in the last minute
+ */
+function badgeText(remaining) {
+  if (remaining > 59_000) return Math.ceil(remaining / 60_000) + "m";
+  return Math.max(1, Math.ceil(remaining / 1000)) + "s";
 }
 
 /**
- * True when a snooze is in its final 30s AND the active tab is on that snoozed
- * domain — i.e. the moment it's actually worth nagging the user. Never while the
- * whole extension is off: nothing is about to re-block, and the popup is grayed out.
+ * When an unlock's badge text next changes.
+ * @param {number} expiry
+ * @param {number} now
+ * @returns {number} timestamp
  */
-async function shouldNag() {
-  if (await isPaused()) return false;
-  const snoozed = await getSnoozed();
+function nextBadgeChange(expiry, now) {
+  const remaining = expiry - now;
+  if (remaining > 59_000) {
+    const minutes = Math.ceil(remaining / 60_000);
+    return expiry - Math.max((minutes - 1) * 60_000, 59_000);
+  }
+  const seconds = Math.ceil(remaining / 1000);
+  return expiry - (seconds - 1) * 1000;
+}
+
+/**
+ * The unlocked domain a tab is on, if any.
+ * @param {string | undefined} url
+ * @param {Record<string, unknown>} snoozed active snooze map
+ * @returns {string | null}
+ */
+function unlockedDomainFor(url, snoozed) {
+  if (!url || !/^https?:/i.test(url)) return null;
+  const host = normalizeDomain(url);
+  return Object.keys(snoozed).find((d) => host === d || host.endsWith("." + d)) || null;
+}
+
+/**
+ * @param {number} tabId
+ * @param {string} text "" clears the badge
+ */
+function setTabBadge(tabId, text) {
+  if (badgeTexts.get(tabId) === text) return;
+  badgeTexts.set(tabId, text);
+  chrome.action.setBadgeText({ tabId, text }).catch(() => badgeTexts.delete(tabId));
+}
+
+/** Active unlocks that should show a badge: none while Focus Guard is off. */
+async function badgeSnoozes() {
+  return (await isPaused()) ? {} : getSnoozed();
+}
+
+/** Repaint every tab's badge and schedule the next change. */
+async function updateBadges() {
+  clearTimeout(badgeTimer);
+  badgeTimer = null;
+  const [snoozed, tabs] = await Promise.all([badgeSnoozes(), chrome.tabs.query({})]);
   const now = Date.now();
-  const imminent = Object.entries(snoozed)
-    .filter(([, v]) => {
-      const remaining = expiryOf(v) - now;
-      return remaining > 0 && remaining <= OPEN_AT_30_MS;
-    })
-    .map(([domain]) => domain);
-  if (imminent.length === 0) return false;
-
-  const tabDomain = await activeTabDomain();
-  if (!tabDomain) return false;
-  return imminent.some((d) => tabDomain === d || tabDomain.endsWith("." + d));
-}
-
-/** Open the extension's own popup, ignoring "no active window"/unsupported errors. */
-function openPopupSafely() {
-  try {
-    const p = chrome.action.openPopup?.();
-    if (p && typeof p.catch === "function") p.catch(() => {});
-  } catch {
-    /* no focused window or unsupported — nothing else to do */
+  for (const tab of tabs) {
+    if (tab.id == null) continue;
+    const domain = unlockedDomainFor(tab.url, snoozed);
+    setTabBadge(tab.id, domain ? badgeText(expiryOf(snoozed[domain]) - now) : "");
   }
-}
 
-/** Open the popup if it's closed and the active tab is the expiring site. */
-async function reopenIfRelevant() {
-  if (popupOpen) return;
-  if (await shouldNag()) openPopupSafely();
+  const expiries = Object.values(snoozed).map(expiryOf);
+  if (expiries.length === 0) {
+    await chrome.alarms.clear(BADGE_ALARM);
+    return;
+  }
+  // +50ms so the tick lands just after the boundary, not just before it.
+  const next = Math.min(...expiries.map((e) => nextBadgeChange(e, now))) + 50;
+  if (next - now < 30_000) {
+    badgeTimer = setTimeout(updateBadges, next - now);
+  } else {
+    await chrome.alarms.create(BADGE_ALARM, { when: next });
+  }
 }
 
 /**
- * (Re)schedule the alarm that fires 30s before the nearest snooze expires. Alarms
- * persist across worker restarts. The handler still re-checks the active tab.
+ * Repaint one tab's badge, e.g. after it navigates.
+ * @param {number} tabId
+ * @param {string | undefined} url
  */
-async function scheduleCountdown() {
-  await chrome.alarms.clear(OPEN30_ALARM);
-  const expiry = await getNearestExpiry();
-  if (!expiry) return;
-  const when = expiry - OPEN_AT_30_MS;
-  if (when > Date.now()) {
-    await chrome.alarms.create(OPEN30_ALARM, { when });
-  } else if (expiry > Date.now()) {
-    reopenIfRelevant(); // already inside the window
-  }
+async function updateTabBadge(tabId, url) {
+  const snoozed = await badgeSnoozes();
+  const domain = unlockedDomainFor(url, snoozed);
+  setTabBadge(tabId, domain ? badgeText(expiryOf(snoozed[domain]) - Date.now()) : "");
 }
+
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (!changeInfo.url && changeInfo.status !== "complete") return;
+  badgeTexts.delete(tabId); // Chrome may have reset it on navigation
+  updateTabBadge(tabId, tab.url);
+});
+chrome.tabs.onRemoved.addListener((tabId) => badgeTexts.delete(tabId));
 
 // --- Alarms ---
 chrome.alarms.onAlarm.addListener(async (alarm) => {
-  if (alarm.name === OPEN30_ALARM) {
-    reopenIfRelevant(); // open only if we're on the expiring site
+  if (alarm.name === BADGE_ALARM) {
+    updateBadges();
     return;
   }
   if (alarm.name === "fg-pause-end") {
@@ -268,11 +299,19 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
   const domain = alarm.name.slice("snooze:".length);
   const snoozed = await getSnoozed();
   delete snoozed[domain];
-  await setSnoozed(snoozed); // (storage change re-schedules/clears the open alarm)
+  await setSnoozed(snoozed);
   await syncRules(); // restore the blocking rule
-  await reblockOpenTabs(domain); // and bounce any open tabs to the blocked page
+  // Bounce open tabs to the blocked page, unless nothing is blocking them now.
+  const { blockedDomains = DEFAULT_BLOCKED } = await chrome.storage.sync.get("blockedDomains");
+  if (blockedDomains.includes(domain) && !(await isPaused())) {
+    await reblockOpenTabs(domain);
+  }
 });
 
+/** Clear alarms that earlier versions scheduled and this one no longer handles. */
+async function clearRetiredAlarms() {
+  for (const name of RETIRED_ALARMS) await chrome.alarms.clear(name);
+}
 
 // --- Install / startup ---
 chrome.runtime.onInstalled.addListener(async () => {
@@ -282,22 +321,28 @@ chrome.runtime.onInstalled.addListener(async () => {
   if (!stored.youtube) seed.youtube = DEFAULT_YOUTUBE;
   if (!stored.allowedChannels) seed.allowedChannels = DEFAULT_CHANNELS;
   if (Object.keys(seed).length) await chrome.storage.sync.set(seed);
+  await clearRetiredAlarms();
+  await dropOrphanedSnoozes();
   await syncRules();
-  await scheduleCountdown();
+  await updateBadges();
 });
 
 chrome.storage.onChanged.addListener(async (changes, area) => {
-  if (area === "sync" && changes.blockedDomains) syncRules();
-  // Snooze changes (re)schedule the auto-open alarms. NOTE: we deliberately do
-  // NOT re-sync the blocking rules here — the popup owns rule add/remove for
-  // snooze/unsnooze directly, and re-syncing would race with it (re-blocking a
-  // site the popup just unblocked). Scheduling the alarms touches no rules.
-  if (area === "local" && changes.snoozed) scheduleCountdown();
+  if (area === "sync" && changes.blockedDomains) {
+    syncRules();
+    dropOrphanedSnoozes();
+  }
+  // Snooze changes only repaint the badges. NOTE: we deliberately do NOT re-sync
+  // the blocking rules here — the popup owns rule add/remove for snooze/unsnooze
+  // directly, and re-syncing would race with it (re-blocking a site the popup
+  // just unblocked).
+  if (area === "local" && changes.snoozed) updateBadges();
 
   // Pause/resume: rebuild rules (empty while paused, restored on resume). When
   // pausing, immediately release tabs stuck on the blocked page; when resuming,
   // bounce open tabs on blocked sites back to the blocked page.
   if (area === "local" && changes.pausedUntil) {
+    updateBadges();
     await syncRules();
     const stillPaused =
       changes.pausedUntil.newValue && changes.pausedUntil.newValue > Date.now();
@@ -307,6 +352,7 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
 });
 
 chrome.runtime.onStartup.addListener(async () => {
+  await clearRetiredAlarms();
   await syncRules();
-  await scheduleCountdown();
+  await updateBadges();
 });

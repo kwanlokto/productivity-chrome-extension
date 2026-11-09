@@ -29,16 +29,10 @@ if (domain) {
 }
 
 const quote = QUOTES[Math.floor(Math.random() * QUOTES.length)];
-const quoteEl = document.getElementById("quote");
-quoteEl.textContent = "“" + quote.text + "”";
-const authorEl = document.createElement("span");
-authorEl.className = "author";
-authorEl.textContent = "— " + quote.author;
-quoteEl.appendChild(document.createElement("br"));
-quoteEl.appendChild(authorEl);
+document.getElementById("quote-text").textContent = "“" + quote.text + "”";
+document.getElementById("quote-author").textContent = quote.author;
 
-document.getElementById("back").addEventListener("click", (e) => {
-  e.preventDefault();
+document.getElementById("back").addEventListener("click", () => {
   if (history.length > 1) {
     history.back();
   } else {

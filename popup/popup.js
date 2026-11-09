@@ -6,16 +6,10 @@ import { initSitesView } from "./sites-view.js";
 import { initYoutubeView } from "./youtube-view.js";
 import { initSettingsView } from "./settings-view.js";
 
-// Tell the background worker the popup is open (so it can reopen at 0:10 only if
-// we were closed). The port stays connected for the life of the popup; closing
-// the popup disconnects it.
-const popupPort = chrome.runtime.connect({ name: "popup" });
-// Keep a reference so the port isn't garbage-collected.
-window.addEventListener("unload", () => popupPort.disconnect());
-
 /**
  * Wire the top-level tab switcher with an accessible tablist: roving tabindex,
  * aria-selected, and arrow / Home / End keyboard navigation.
+ * @returns {{ show: (name: string) => void }} switches to a tab by its data-tab name
  */
 function initNav() {
   const tabs = [...document.querySelectorAll(".tab")];
@@ -54,10 +48,18 @@ function initNav() {
       }
     });
   });
+
+  return {
+    show(name) {
+      const tab = tabs.find((t) => t.dataset.tab === name);
+      if (tab) activate(tab);
+    },
+  };
 }
 
-initNav();
-initHeaderView();
+const nav = initNav();
+// While off, the break countdown lives on the Sites tab.
+initHeaderView({ onSwitchedOff: () => nav.show("sites") });
 initSitesView();
 initYoutubeView();
 initSettingsView();

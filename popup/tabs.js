@@ -17,7 +17,24 @@ export async function getActiveTab() {
  * @returns {Promise<string>} a bare domain, or "" if none/unavailable
  */
 export async function getCurrentTabDomain() {
+  return domainOfTab(await getActiveTab());
+}
+
+/**
+ * The active tab's domain (as getCurrentTabDomain) and its title, which names
+ * pages that have no blockable domain, such as a new tab.
+ * @returns {Promise<{ domain: string, title: string }>}
+ */
+export async function getCurrentTab() {
   const tab = await getActiveTab();
+  return { domain: domainOfTab(tab), title: tab?.title || "" };
+}
+
+/**
+ * @param {chrome.tabs.Tab | undefined} tab
+ * @returns {string} a bare domain, or "" if none/unavailable
+ */
+function domainOfTab(tab) {
   if (!tab?.url) return "";
   try {
     const url = new URL(tab.url);

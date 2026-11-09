@@ -44,10 +44,15 @@ export const test = base.extend({
   /**
    * Seed chrome.storage, then open the popup page in a new tab.
    * Usage: `const popup = await openPopup({ sync: {...}, local: {...} })`.
+   *
+   * Opened as a tab, the popup is its own active tab. Pass `activeTab`
+   * (`{ url, title }`) to make it see that page as the active tab instead, so
+   * the circle shows that page's state. The fake tab has no id, so actions that
+   * navigate or reload the active tab skip that step.
    */
   openPopup: async ({ context, background }, use) => {
     const extensionId = background.url().split("/")[2];
-    await use(async ({ sync = {}, local = {} } = {}) => {
+    await use(async ({ sync = {}, local = {}, activeTab } = {}) => {
       await background.evaluate(
         async ({ sync, local }) => {
           await chrome.storage.sync.set(sync);
@@ -56,6 +61,13 @@ export const test = base.extend({
         { sync, local },
       );
       const page = await context.newPage();
+      if (activeTab) {
+        await page.addInitScript((fake) => {
+          const query = chrome.tabs.query.bind(chrome.tabs);
+          chrome.tabs.query = async (info) =>
+            info?.active ? [{ active: true, ...fake }] : query(info);
+        }, activeTab);
+      }
       await page.goto(`chrome-extension://${extensionId}/popup/popup.html`);
       return page;
     });

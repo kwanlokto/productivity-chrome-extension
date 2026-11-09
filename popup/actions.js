@@ -38,13 +38,18 @@ export async function addDomain(domain) {
 }
 
 /**
- * Remove a domain from the blocked list and its rule. If the active tab is stuck
- * on our blocked page for this domain, send it through to the real site.
+ * Remove a domain from the blocked list and its rule, and end any unlock running
+ * on it. If the active tab is stuck on our blocked page for this domain, send it
+ * through to the real site.
  * @param {string} domain
  */
 export async function removeDomain(domain) {
   await setDomains((await getDomains()).filter((d) => d !== domain));
   await removeBlockRule(domain);
+  // A leftover unlock would keep its toolbar badge, and its re-block alarm
+  // would reload the site's tabs, for a site that's no longer blocked.
+  await removeSnooze(domain);
+  await chrome.alarms.clear("snooze:" + domain);
 
   const tab = await getActiveTab();
   if (tab?.url && tab.id) {

@@ -34,6 +34,7 @@ All popup storage access goes through `popup/storage.js`.
 - `chrome.storage.sync`: `blockedDomains` (bare domains), `youtube` (see `DEFAULT_YOUTUBE`), `allowedChannels`, `unlockMinutes`, and `pauseMinutes` (how long the header switch turns Focus Guard off for).
 - `chrome.storage.local`: `snoozed` and `pausedUntil` (a ms timestamp for the whole-extension pause).
   - `snoozed` has the shape `{ [domain]: { start, expiry, cap } }`. Older entries may be a bare expiry number. Always read entries through `expiryOf` / `startOf` / `capOf`.
+  - An unlock only exists for a domain on the blocked list. Removing a domain ends its unlock: `removeDomain` in `popup/actions.js` does it straight away, and the background's `dropOrphanedSnoozes` covers imports and other synced devices whenever `blockedDomains` changes.
 
 A new synced setting must be added to `exportSettings`, `importSettings`, and `resetSettings` in `storage.js`, and usually also to the `onInstalled` seed in `background.js`.
 
@@ -44,18 +45,18 @@ Each blocked domain gets one `declarativeNetRequest` dynamic **redirect** rule o
 - **The background** (`doSyncRules`) wipes and rebuilds every rule. It runs on install, on startup, on changes to `blockedDomains`, and on changes to `pausedUntil`. Calls are serialized through `syncChain` to avoid duplicate-id errors.
 - **The popup** (`popup/rules.js`, called from `popup/actions.js`) adds and removes individual rules itself. This guarantees the rule change is finished before it navigates or reloads a tab. It also covers the case where the MV3 worker is asleep. Pause and resume follow the same pattern: the popup applies them immediately, and the background reacts to the storage change for other tabs.
 - **Rules are identified by their `regexFilter` string, not by id.** The two writers assign ids differently (`i + 1` vs `maxId + 1`).
-- **The background deliberately does not resync rules when `snoozed` changes.** The popup owns rule changes for snooze and unsnooze, and a resync there would race with it and re-block a site the user just unlocked. Don't add one.
+- **The background deliberately does not resync rules when `snoozed` changes.** The popup owns rule changes for snooze and unsnooze, and a resync there would race with it and re-block a site the user just unlocked. Don't add one. (A `snoozed` change only repaints the toolbar badges.)
 
 ### Blocked page URL contract
 
 The redirect target is `blocked.html?domain=<domain>&url=<full original URL>`, and `url` **must stay last**. Readers take everything after `url=` as the original URL (`getBlockedOriginalUrl` in `popup/tabs.js`, `releaseAllBlockedTabs` in `background.js`) rather than using `URLSearchParams`, because the original URL can contain its own `?` and `&`.
 
-### Alarms and the popup port
+### Alarms and the toolbar badge
 
-- `snooze:<domain>` restores the block when an unlock ends and reloads open tabs on that domain.
+- `snooze:<domain>` restores the block when an unlock ends and reloads open tabs on that domain (unless the domain has left the list or Focus Guard is off).
 - `fg-pause-end` clears `pausedUntil`. The storage listener then rebuilds the rules.
-- `open-30` fires 30s before the nearest snooze expires. It opens the popup (which shows the countdown ring), but only when the active tab is on the expiring domain.
-- On load, the popup connects a runtime port named `"popup"`. The background uses it to tell whether the popup is open, so it can reopen the popup while the user stays on the expiring site.
+- `badge-tick` repaints the toolbar badge. While a site is unlocked, each of its tabs shows the time left on the Focus Guard icon: `5m` … `1m`, then `59s` … `1s`. Other tabs, and every tab while Focus Guard is off, show nothing. `updateBadges` schedules the next change itself: an alarm for waits of 30s or more (the minimum alarm delay), a `setTimeout` for shorter ones.
+- **The popup never opens by itself.** Versions before 1.3.0 reopened it during the last 30s of an unlock (the `open-30` alarm and a `"popup"` runtime port). `RETIRED_ALARMS` clears that alarm on install and startup; don't bring the behavior back.
 
 ### YouTube content script
 
@@ -68,25 +69,28 @@ To add a YouTube toggle:
 1. Add the flag to `DEFAULT_YOUTUBE` in `shared/core.js`.
 2. Add a `CLASS_MAP` entry in `content/youtube.js`.
 3. Add CSS rules in `content/youtube.css`.
-4. Add a checkbox with `data-yt="<flag>"` to `popup/popup.html`. `popup/youtube-view.js` binds every `[data-yt]` element automatically, and `importSettings` iterates over the `DEFAULT_YOUTUBE` keys.
+4. Add a row to the YouTube card in `popup/popup.html`: a `<label class="row">` holding the name and an `<input type="checkbox" role="switch" class="switch" data-yt="<flag>">`. `popup/youtube-view.js` binds every `[data-yt]` element automatically, and `importSettings` iterates over the `DEFAULT_YOUTUBE` keys. A row is 45px and the YouTube tab has only 8px to spare, so make room first (see **Fixed popup size**); `tests/popup-size.spec.js` fails if the tab overflows.
 
 ### Popup structure
 
 `popup.js` wires the tab navigation and calls each view's `init*`. The views (`sites-view.js`, `youtube-view.js`, `settings-view.js`) contain the DOM code. They call `actions.js`, which combines storage, rules, and tabs operations and contains no DOM code. The views then re-render, and they also subscribe to `chrome.storage.onChanged` so changes made elsewhere show up.
 
-`header-view.js` owns the header's on/off switch for the whole extension (the `pausedUntil` pause), which applies across all tabs. While the extension is paused, it dims `#app-body` (everything below the header) and sets `inert` on it, so nothing there can be clicked, focused, or read by assistive tech. It also shows the `#off-notice` message over the dimmed area; the notice sits outside `#app-body` so it isn't dimmed or inert itself. Controls inside the tabs therefore don't need their own "paused" handling.
+`header-view.js` owns the header's on/off switch for the whole extension (the `pausedUntil` pause), which applies across all tabs. While the extension is paused, it dims the tab bar and sets `inert` on it, and jumps to the Sites tab (through the `onSwitchedOff` callback from `popup.js`). The Sites tab then shows the break: `sites-view.js` puts the time left in the circle with a "Turn on now" button, disables the "Blocked sites" row, and closes the list if it was open. The YouTube and Settings tabs can't be reached while paused, so they need no "paused" handling of their own.
 
-**Fixed popup size:** the popup is a fixed 340 × 560px on every tab and view, so it never jumps in size as you switch tabs. If a view needs more room, it scrolls inside the area below the tab bar (the active `.panel`); the header and tabs stay put. The list views (blocked sites, allowed channels) fill the panel instead: their "← heading" row and Add field stay put, and the list scrolls on its own. Don't change the size without updating this rule, the README's Notes, and `tests/popup-size.spec.js`, which enforces it.
+**The circle** (`sites-view.js`, `updateStatusCircle`) has five states, each a `.circle.is-*` class: `unblock` (a blocked site: Unlock plus 2×/3×), `countdown` (an unlocked site: time left, "+1 min", "Block now"), `block` (a site that isn't blocked), `none` (a page that can't be blocked), and `off` (the break). Only `unblock` and `block` make the circle itself clickable; in the others it only displays.
+
+**Fixed popup size:** the popup is a fixed 340 × 420px on every tab and view, so it never jumps in size as you switch tabs. 420 is exactly the height of the tallest views, so no view is left with dead space: every row, card and gap in `popup.css` has a fixed height, and the views add up to the panel's height. The circle area absorbs the difference between circle states (states without buttons under the circle center it). The list views (blocked sites, allowed channels) fill the panel: their "← heading" row and Add field stay put, and the list scrolls on its own inside its box. Adding a row to a view means taking the height from somewhere else in it. Don't change the size without updating this rule, the README's Notes, and `tests/popup-size.spec.js`, which checks the size and that no panel overflows.
+
+**Theme:** the popup and the blocked page follow Chrome's light or dark setting. `popup/popup.css` and the `<style>` in `blocked.html` each define the colors as tokens on `:root`, light first and dark under `prefers-color-scheme: dark`. The shared tokens use the same values in both files; keep them in sync by hand.
 
 ### Tests
 
 `tests/fixtures.js` starts a fresh Chromium profile per test, with the repo root loaded unpacked:
-- The `openPopup({ sync, local })` fixture seeds `chrome.storage` through the background service worker, then opens `popup/popup.html` in a tab. Seeding waits until the extension's install-time defaults are written, so they can't overwrite a test's seed.
+- The `openPopup({ sync, local, activeTab })` fixture seeds `chrome.storage` through the background service worker, then opens `popup/popup.html` in a tab. Seeding waits until the extension's install-time defaults are written, so they can't overwrite a test's seed.
 - The `readStorage(area, keys)` fixture reads storage back.
+- The `background` fixture is the service worker. `tests/badge.spec.js` uses it with real tabs (served by `context.route`) to read `chrome.action.getBadgeText`.
 
-Two consequences of opening the popup as a tab rather than as a real popup:
-- **Active tab:** the popup counts itself as the active tab, so the circle always shows "can't block". Anything that depends on the active tab being a real site needs a manual check.
-- **Timed opening:** `chrome.action.openPopup` behavior, like the 30-second reminder, can't be tested.
+**Active tab:** opened as a tab, the popup counts itself as the active tab, so the circle shows "Nothing to block here". Pass `activeTab: { url, title }` to make the popup see that page as the active tab instead; it overrides `chrome.tabs.query` inside the popup page. The fake tab has no id, so actions skip their navigate/reload step: what the circle shows and what lands in storage can be tested, but the tab actually reloading onto the blocked page (or back to the site) still needs a manual check in Chrome.
 
 Write tests against what a user sees: role- and label-based locators, visible text, and resulting storage.
 

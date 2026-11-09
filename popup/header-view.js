@@ -1,46 +1,29 @@
 // Header: the on/off switch for the whole extension. It spans every tab, so it
-// lives here rather than in any one tab's view.
+// lives here rather than in any one tab's view. While Focus Guard is off, the
+// Sites tab shows the break countdown (sites-view.js) and the tabs are locked.
 
 import * as actions from "./actions.js";
 import { getPauseMinutes, getPausedUntil } from "./storage.js";
-import { formatClock } from "./util.js";
 
 // DOM refs (populated in initHeaderView).
-let powerSwitch, countdownEl, appBody, offNotice;
+let powerSwitch, tabsEl;
 
-// Handle for the live "m:ss left" interval, so we can cancel it on re-render.
-let countdownTimer = null;
+/** Called whenever the header renders as off. */
+let onSwitchedOff = () => {};
 
-/**
- * Tick the "m:ss left" label until the pause ends, then re-render as on.
- * @param {number} until pause-end timestamp
- */
-function startCountdown(until) {
-  const tick = () => {
-    const remaining = until - Date.now();
-    if (remaining <= 0) {
-      clearInterval(countdownTimer);
-      countdownTimer = null;
-      render(); // pause ended — back on
-      return;
-    }
-    countdownEl.textContent = `${formatClock(remaining)} left`;
-  };
-  // Start the interval before the first tick so an already-elapsed pause can
-  // clear it.
-  countdownTimer = setInterval(tick, 250);
-  tick();
-}
+// One-shot timer that re-renders the moment a pause runs out, without waiting
+// on the background's resume alarm.
+let resumeTimer = null;
 
-/** Re-read state and paint the switch and countdown. */
+/** Re-read state and paint the switch and the tab lock. */
 async function render() {
   const [minutes, pausedUntil] = await Promise.all([
     getPauseMinutes(),
     getPausedUntil(),
   ]);
-  // Clear after the await so overlapping renders can't orphan an interval.
-  clearInterval(countdownTimer);
-  countdownTimer = null;
+  // Clear after the await so overlapping renders can't orphan a timer.
+  clearTimeout(resumeTimer);
+  resumeTimer = null;
 
   const on = !pausedUntil;
   powerSwitch.checked = on;
@@ -50,14 +33,14 @@ async function render() {
   powerSwitch.title = label;
   powerSwitch.setAttribute("aria-label", label);
 
-  // Dim everything below the header while off. `inert` also blocks clicks,
-  // keyboard focus, and assistive tech, so nothing there looks usable.
-  appBody.classList.toggle("is-disabled", !on);
-  appBody.inert = !on;
-  offNotice.classList.toggle("hidden", on);
+  // `inert` also blocks clicks, keyboard focus, and assistive tech.
+  tabsEl.inert = !on;
+  tabsEl.classList.toggle("is-disabled", !on);
 
-  countdownEl.classList.toggle("hidden", on);
-  if (!on) startCountdown(pausedUntil);
+  if (!on) {
+    onSwitchedOff();
+    resumeTimer = setTimeout(render, pausedUntil - Date.now());
+  }
 }
 
 /**
@@ -79,7 +62,8 @@ function run(action) {
 
 /**
  * Keep the header in sync when state changes from elsewhere: the background's
- * resume alarm ending the pause, or the Settings tab changing its duration.
+ * resume alarm ending the pause, the Sites tab's "Turn on now", or the Settings
+ * tab changing the break length.
  */
 function bindStorageSync() {
   chrome.storage.onChanged.addListener((changes, area) => {
@@ -88,12 +72,14 @@ function bindStorageSync() {
   });
 }
 
-/** Initialize the header. */
-export function initHeaderView() {
+/**
+ * Initialize the header.
+ * @param {{ onSwitchedOff?: () => void }} [options]
+ */
+export function initHeaderView(options = {}) {
   powerSwitch = document.getElementById("power-switch");
-  countdownEl = document.getElementById("power-countdown");
-  appBody = document.getElementById("app-body");
-  offNotice = document.getElementById("off-notice");
+  tabsEl = document.getElementById("tabs");
+  if (options.onSwitchedOff) onSwitchedOff = options.onSwitchedOff;
 
   powerSwitch.addEventListener("change", () => {
     if (powerSwitch.checked) {

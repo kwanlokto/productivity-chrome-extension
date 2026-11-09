@@ -1,4 +1,4 @@
-// "YouTube" tab: focus toggles and the allowed-channels list.
+// "YouTube" tab: focus switches and the allowed-channels list.
 
 import { normalizeChannel, reanimate } from "./util.js";
 import {
@@ -8,55 +8,54 @@ import {
   setChannels,
 } from "./storage.js";
 
-let channelListEl, channelEmptyEl, channelFormEl, channelInputEl, channelsEditor;
-let mainView, manageView, openChannelsBtn, backBtn;
+const REMOVE_ICON =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+
+let channelListEl, channelEmptyEl, channelFormEl, channelInputEl;
+let mainView, manageView, openChannelsBtn, backBtn, channelsSummary, allowlistHint;
+
+// How many channels are allowed, for the "Allowed channels" row.
+let channelCount = 0;
+
+/** @param {string} key a DEFAULT_YOUTUBE key */
+const toggleFor = (key) => document.querySelector(`[data-yt="${key}"]`);
 
 /* ---------------------------- Enable/disable UI --------------------------- */
 
 /**
- * The "Change allowed channels" button only needs YouTube tweaks to be on — the
- * allow-list "Enable" toggle now lives inside the channel editor itself.
+ * Say what the allow-list is doing: on the "Allowed channels" row ("Off", or how
+ * many channels), and under its switch. The list itself stays editable either
+ * way, so it can be set up before it's turned on.
  */
-function applyOpenButtonEnabled() {
-  const masterOn = document.querySelector('[data-yt="enabled"]').checked;
-  openChannelsBtn.disabled = !masterOn;
+function paintAllowlist() {
+  const on = toggleFor("allowedChannelsOnly").checked;
+  allowlistHint.textContent = on
+    ? "On · other channels are hidden"
+    : "Off · every channel is shown";
+  channelsSummary.textContent = on
+    ? `${channelCount} ${channelCount === 1 ? "channel" : "channels"}`
+    : "Off";
 }
 
 /**
- * The channel editor (add form + list) is only usable when YouTube tweaks are on
- * AND the allow-list is enabled — otherwise dim it and make it non-interactive
- * (so it reads as "all channels allowed").
- */
-function applyChannelEditorEnabled() {
-  const masterOn = document.querySelector('[data-yt="enabled"]').checked;
-  const allowlistOn = document.querySelector(
-    '[data-yt="allowedChannelsOnly"]',
-  ).checked;
-  const on = masterOn && allowlistOn;
-  channelsEditor.classList.toggle("is-disabled", !on);
-  channelInputEl.disabled = !on;
-  channelFormEl.querySelector("button").disabled = !on;
-}
-
-/**
- * Disable + dim every sub-toggle when the master "Enable YouTube tweaks" is off.
+ * Disable and dim every sub-option, and the way into the channel list, while
+ * "YouTube focus" is off.
  * @param {boolean} enabled
  */
 function applyYoutubeEnabled(enabled) {
   document.querySelectorAll("[data-yt]").forEach((el) => {
     if (el.dataset.yt === "enabled") return; // never disable the master itself
     el.disabled = !enabled;
-    el.closest(".toggle")?.classList.toggle("is-disabled", !enabled);
+    el.closest(".row")?.classList.toggle("is-disabled", !enabled);
   });
-  applyOpenButtonEnabled();
-  applyChannelEditorEnabled();
+  openChannelsBtn.disabled = !enabled;
 }
 
 /* ------------------------------- Toggles ---------------------------------- */
 
 /**
- * Reflect stored settings into the toggle checkboxes and apply enabled/disabled
- * styling. Pure paint — binds nothing, so it's safe to call on every refresh.
+ * Reflect stored settings into the switches. Pure paint — binds nothing, so it's
+ * safe to call on every refresh.
  * @param {Record<string, boolean>} settings
  */
 function applyToggleStates(settings) {
@@ -64,10 +63,11 @@ function applyToggleStates(settings) {
     el.checked = Boolean(settings[el.dataset.yt]);
   });
   applyYoutubeEnabled(Boolean(settings.enabled));
+  paintAllowlist();
 }
 
 /**
- * Bind every [data-yt] checkbox to persist on change. Call once — state itself is
+ * Bind every [data-yt] switch to persist on change. Call once — state itself is
  * painted by applyToggleStates.
  */
 function bindToggles() {
@@ -78,7 +78,7 @@ function bindToggles() {
       current[key] = el.checked;
       await setYoutubeSettings(current);
       if (key === "enabled") applyYoutubeEnabled(el.checked);
-      if (key === "allowedChannelsOnly") applyChannelEditorEnabled();
+      if (key === "allowedChannelsOnly") paintAllowlist();
     });
   });
 }
@@ -90,46 +90,48 @@ function bindToggles() {
  * @param {string[]} channels
  */
 function renderChannels(channels) {
-  channelListEl.innerHTML = "";
+  channelCount = channels.length;
+  channelListEl.replaceChildren();
+  channelListEl.classList.toggle("hidden", channels.length === 0);
   channelEmptyEl.classList.toggle("hidden", channels.length > 0);
 
   for (const channel of channels) {
     const li = document.createElement("li");
 
-    const span = document.createElement("span");
-    span.textContent = "@" + channel;
+    const name = document.createElement("span");
+    name.className = "item-name";
+    name.textContent = "@" + channel;
 
     const btn = document.createElement("button");
-    btn.textContent = "✕";
+    btn.type = "button";
+    btn.className = "remove-btn";
     btn.title = "Remove";
+    btn.setAttribute("aria-label", `Remove @${channel}`);
+    btn.innerHTML = REMOVE_ICON;
     btn.addEventListener("click", async () => {
       await setChannels((await getChannels()).filter((c) => c !== channel));
       renderChannels(await getChannels());
     });
 
-    li.append(span, btn);
+    li.append(name, btn);
     channelListEl.appendChild(li);
   }
+  paintAllowlist();
 }
 
 /**
- * Switch between the main (toggles) view and the manage-channels view, sliding
- * the incoming view in (from the right going forward, from the left going back).
+ * Switch between the main (switches) view and the channel list, sliding the
+ * incoming view in (from the right going forward, from the left going back).
  * @param {boolean} showManage
  */
 function setChannelsView(showManage) {
-  if (showManage) {
-    mainView.classList.add("hidden");
-    manageView.classList.remove("hidden");
-    reanimate(manageView, "slide-in-right");
-  } else {
-    manageView.classList.add("hidden");
-    mainView.classList.remove("hidden");
-    reanimate(mainView, "slide-in-left");
-  }
+  const [from, to] = showManage ? [mainView, manageView] : [manageView, mainView];
+  from.classList.add("hidden");
+  to.classList.remove("hidden");
+  reanimate(to, showManage ? "slide-in-right" : "slide-in-left");
 }
 
-/** Wire the "Change allowed channels" / back navigation. */
+/** Wire the "Allowed channels" row and the list's Back button. */
 function bindChannelsNav() {
   openChannelsBtn.addEventListener("click", () => setChannelsView(true));
   backBtn.addEventListener("click", () => setChannelsView(false));
@@ -162,8 +164,8 @@ async function refreshFromStorage() {
     getYoutubeSettings(),
     getChannels(),
   ]);
-  applyToggleStates(settings);
   renderChannels(channels);
+  applyToggleStates(settings);
 }
 
 /** Repaint when the YouTube settings or channel list change from elsewhere. */
@@ -181,12 +183,13 @@ export async function initYoutubeView() {
   channelEmptyEl = document.getElementById("channel-empty");
   channelFormEl = document.getElementById("channel-form");
   channelInputEl = document.getElementById("channel-input");
-  channelsEditor = document.getElementById("channels-editor");
 
   mainView = document.getElementById("youtube-main");
   manageView = document.getElementById("youtube-manage");
   openChannelsBtn = document.getElementById("open-channels");
   backBtn = document.getElementById("back-to-youtube");
+  channelsSummary = document.getElementById("channels-summary");
+  allowlistHint = document.getElementById("allowlist-hint");
 
   bindChannelsNav();
   bindToggles(); // bind once; state is painted by refreshFromStorage

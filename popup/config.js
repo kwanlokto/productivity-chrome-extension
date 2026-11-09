@@ -11,5 +11,5 @@ export {
   DEFAULT_PAUSE_MINUTES,
 } from "../shared/core.js";
 
-/** Circumference of the countdown ring (must match the SVG circle r=54). */
-export const RING_CIRCUMFERENCE = 2 * Math.PI * 54;
+/** Circumference of the countdown ring (must match the SVG circle r=73). */
+export const RING_CIRCUMFERENCE = 2 * Math.PI * 73;

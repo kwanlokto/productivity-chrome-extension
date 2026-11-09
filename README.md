@@ -8,6 +8,7 @@ distracting sites and taming YouTube's doom-scroll machinery.
 - **Site blocking** — Facebook, Instagram, and TikTok are blocked out of the box.
   Blocked visits are redirected to a calm reminder page, and a one-click **Unlock**
   lifts the block for a set number of minutes (then it re-blocks automatically).
+  While a site is unlocked, its tabs show the time left on the toolbar icon.
 - **Custom block list** — Add or remove any domain from the popup, or block the site
   you're currently on. Your list syncs across your Chrome profile via
   `chrome.storage.sync`.
@@ -19,21 +20,23 @@ distracting sites and taming YouTube's doom-scroll machinery.
   - **Recommendations** — hides the watch-page sidebar and end-screen cards
   - **Comments** — hides the comment section
   - **Allowed channels only** — show videos only from an allow-list; opening a
-    non-allowed video shows a block screen with a "watch anyway" escape
+    non-allowed video shows a block screen with a "watch anyway" escape. The list
+    can be edited while this is off, so you can set it up first.
 - **On/off switch** — The switch in the popup header turns all of Focus Guard (site
   blocking and YouTube tweaks) off for a set number of minutes, then it turns
-  itself back on. While it's off, the header counts down the time left and the
-  rest of the popup is grayed out under a "Focus Guard is off" message. Flip it
-  back on to end the break early.
-- **Settings tab** — Change how long "Unlock" lifts a block for and how long the
-  on/off switch turns Focus Guard off for, save your settings to a JSON file, load
-  them back, or reset everything to defaults.
+  itself back on. While it's off, the Sites tab's circle counts down the break,
+  and **Turn on now** (or the switch) ends it early.
+- **Settings tab** — Change the **Unlock length** and the on/off switch's **Break
+  length**, export your settings to a JSON file, import them back, or reset
+  everything to defaults.
+- **Light and dark** — The popup and the blocked page follow Chrome's light or dark
+  setting.
 
 ## How it works
 
 | Piece | Role |
 |-------|------|
-| [background.js](background.js) | Syncs `declarativeNetRequest` dynamic rules from your blocked-domain list and redirects matching `main_frame` loads to the blocked page; restores blocks when a snooze alarm fires. |
+| [background.js](background.js) | Syncs `declarativeNetRequest` dynamic rules from your blocked-domain list and redirects matching `main_frame` loads to the blocked page; restores blocks when a snooze alarm fires; shows an unlocked site's time left as a badge on the toolbar icon. |
 | [blocked.html](blocked.html) / [blocked.js](blocked.js) | The "stay focused" page shown when a blocked site is opened. |
 | [popup/](popup/) | The toolbar UI (ES modules — see below). |
 | [content/youtube.js](content/youtube.js) / [content/youtube.css](content/youtube.css) | Toggle `<html>` classes that hide distracting YouTube elements; re-applies across SPA navigation. |
@@ -51,10 +54,10 @@ as an ES module, which is split by concern:
 | [rules.js](popup/rules.js) | Add/remove `declarativeNetRequest` blocking rules directly. |
 | [tabs.js](popup/tabs.js) | `chrome.tabs` helpers (active tab, current domain, navigate, reload). |
 | [actions.js](popup/actions.js) | High-level actions (add/remove/block/snooze/unsnooze/pause/resume) combining the above. |
-| [header-view.js](popup/header-view.js) | Header: the on/off switch, its "time left" countdown, and graying out the rest of the popup while off. |
-| [sites-view.js](popup/sites-view.js) | "Blocked sites" tab: list + the circular status/action control. |
-| [youtube-view.js](popup/youtube-view.js) | "YouTube" tab: focus toggles + allowed-channels list. |
-| [settings-view.js](popup/settings-view.js) | "Settings" tab: unlock and disable durations, backup/restore to a file, reset to defaults. |
+| [header-view.js](popup/header-view.js) | Header: the on/off switch, and locking the tabs while off. |
+| [sites-view.js](popup/sites-view.js) | "Sites" tab: the circle for the current tab (including the break countdown while off) + the blocked-sites list. |
+| [youtube-view.js](popup/youtube-view.js) | "YouTube" tab: focus switches + allowed-channels list. |
+| [settings-view.js](popup/settings-view.js) | "Settings" tab: unlock and break lengths, export/import to a file, reset to defaults. |
 | [popup.js](popup/popup.js) | Entry point: tab navigation + view init. |
 
 Settings live in `chrome.storage.sync` under `blockedDomains` (array of bare
@@ -166,13 +169,14 @@ This extension requests broad access, so the dashboard will require you to justi
 
 ## Notes
 
-- **The popup is a fixed 340 × 560px** on every tab and view, so it never jumps in
-  size as you switch tabs. If a view needs more room, it scrolls inside the area
-  below the tab bar; the header and tabs stay put. The blocked-sites and
-  allowed-channels lists fill the space under their heading and scroll on their
-  own, so Back and the Add field stay in view. Don't change the size without
-  updating this rule (and the test that enforces it,
-  [tests/popup-size.spec.js](tests/popup-size.spec.js)).
+- **The popup is a fixed 340 × 420px** on every tab and view, so it never jumps in
+  size as you switch tabs. 420 is exactly the height of the tallest views, so no
+  view is left with empty space. The blocked-sites and allowed-channels lists fill
+  the space under their heading and scroll on their own, so Back and the Add field
+  stay in view. Don't change the size without updating this rule (and the test
+  that enforces it, [tests/popup-size.spec.js](tests/popup-size.spec.js)).
+- The popup never opens by itself; an unlock's time left shows on the toolbar icon
+  instead.
 - YouTube changes its markup often; if an element stops being hidden, the selectors
   in [content/youtube.css](content/youtube.css) may need updating.
 - Domain blocking matches the domain and all subdomains (e.g. blocking `facebook.com`

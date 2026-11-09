@@ -1,246 +1,282 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* Light by default; dark whenever Chrome / the OS is in dark mode. */
 :root {
-  --bg: #0f172a;
-  --surface: #1e293b;
-  --surface-2: #334155;
-  --text: #e2e8f0;
-  --muted: #94a3b8;
-  --accent: #6366f1;
-  --accent-hover: #4f46e5;
+  color-scheme: light dark;
+  --bg: #f4f6fa;
+  --surface: #ffffff;
+  --surface-hover: #f1f4f9;
+  --seg-bg: #e8ecf3;
+  --seg-active: #ffffff;
+  --seg-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
+  --line: #dde3ec;
+  --line-soft: #e6eaf0;
+  --text: #111827;
+  --muted: #5b6577;
+  --icon-bg: #e2e8f0;
+  --icon-fg: #334155;
+  --field-bg: #f4f6fa;
+  --accent: #4f46e5;
+  --accent-hover: #4338ca;
+  --ring-block: #6366f1;
   --danger: #ef4444;
-  --warn: #fbbf24;
-  /* Native parts (scrollbars, number steppers) render dark to match. */
-  color-scheme: dark;
+  --danger-text: #b91c1c;
+  --danger-soft: #fee2e2;
+  --warn: #f59e0b;
+  --warn-text: #b45309;
+  --warn-soft: #fef3c7;
+  --neutral-text: #475569;
+  --neutral-soft: #eef1f5;
+  --switch-off: #cbd2dd;
+  --knob-off: #ffffff;
+  --track: #e6eaf0;
+  --disc-stroke: #e6eaf0;
+  --dash: #cbd2dd;
+  --break: #94a3b8;
 }
 
-/* The popup is a fixed 340 × 560px on every tab and view (README "Notes"), so
-   it never jumps in size. A view that needs more room scrolls inside its panel;
-   the header and tabs stay put. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1422;
+    --surface: #171e2e;
+    --surface-hover: #1e2738;
+    --seg-bg: #171e2e;
+    --seg-active: #2a3449;
+    --seg-shadow: none;
+    --line: #263045;
+    --line-soft: #263045;
+    --text: #e6e9ef;
+    --muted: #8e99ad;
+    --icon-bg: #263045;
+    --icon-fg: #c5cddb;
+    --field-bg: #0f1422;
+    --accent: #5558e3;
+    --accent-hover: #4b4ed0;
+    --danger-text: #f87171;
+    --danger-soft: rgba(239, 68, 68, 0.14);
+    --warn-text: #fbbf24;
+    --warn-soft: rgba(245, 158, 11, 0.14);
+    --neutral-text: #c5cddb;
+    --neutral-soft: rgba(148, 163, 184, 0.14);
+    --switch-off: #334155;
+    --knob-off: #cbd5e1;
+    --track: #263045;
+    --disc-stroke: transparent;
+    --dash: #334155;
+  }
+}
+
+/* The popup is a fixed 340 × 420px on every tab and view (README "Notes"):
+   the height of the tallest view, so no view is left with dead space. Every
+   row below has a fixed height so the views add up exactly. */
 body {
   width: 340px;
-  height: 560px;
+  height: 420px;
   display: flex;
   flex-direction: column;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  overflow: hidden;
   background: var(--bg);
   color: var(--text);
-  padding: 16px;
-  overflow: hidden;
+  font: 14px/1.3 system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, Cantarell, sans-serif;
 }
 
-/* Form controls don't inherit the page font by default; they'd fall back to the
-   browser's own (Arial on Windows) and clash with the labels around them. */
+/* Form controls don't inherit the page font by default. */
 button, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+button:disabled { cursor: default; }
 
-/* One indigo focus ring for every control. Fields draw it over their border. */
-:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.text-input:focus-visible,
-.number-input:focus-visible { outline-offset: -1px; }
+:focus-visible { outline: 2px solid var(--ring-block); outline-offset: 2px; }
 
-header {
+.hidden { display: none !important; }
+
+svg { flex-shrink: 0; }
+
+/* --- Header: logo, name, and the whole-extension switch --- */
+.app-header {
+  height: 52px;
+  flex: none;
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 18px;
+  padding: 0 16px;
 }
-.logo { width: 26px; height: 26px; flex-shrink: 0; }
-header h1 { font-size: 18px; font-weight: 700; }
+.logo { width: 22px; height: 22px; flex: none; }
+.app-header h1 { font-size: 15px; font-weight: 650; letter-spacing: -0.01em; }
+.app-header .switch { margin-left: auto; }
 
-/* Whole-extension on/off switch, pinned to the header's right edge. */
-.power {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: 8px;
+/* --- Switches (every on/off control) --- */
+.switch {
+  appearance: none;
+  position: relative;
+  flex: none;
+  width: 36px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--switch-off);
+  cursor: pointer;
+  transition: background 0.15s;
 }
-.power-countdown {
-  font-size: 13px;
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-/* While Focus Guard is off, everything below the header dims (and is `inert`),
-   and a message is laid over the middle of it. */
-#app-body.is-disabled { opacity: 0.4; }
-.stage {
-  position: relative; /* anchors the off message */
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-.off-notice {
+.switch::before {
+  content: "";
   position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 240px;
-  padding: 18px 20px;
-  background: var(--surface);
-  border: 1px solid var(--surface-2);
-  border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-  text-align: center;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--knob-off);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.2);
+  transition: transform 0.15s, background 0.15s;
 }
-.off-notice-title { font-size: 15px; font-weight: 700; }
-.off-notice-sub { margin-top: 4px; font-size: 13px; color: var(--muted); }
+.switch:checked { background: var(--accent); }
+.switch:checked::before { transform: translateX(16px); background: #ffffff; }
+.switch:disabled { cursor: default; }
 
-/* Tabs */
+/* --- Tabs: a segmented control --- */
 .tabs {
-  display: flex;
-  gap: 4px;
-  margin-bottom: 18px;
-  border-bottom: 1px solid var(--surface-2);
+  height: 34px;
+  flex: none;
+  margin: 0 16px;
+  padding: 3px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 2px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--seg-bg);
 }
 .tab {
-  flex: 1;
+  border: 0;
+  border-radius: 7px;
   background: transparent;
-  border: none;
-  border-bottom: 2px solid transparent;
   color: var(--muted);
   font-size: 13px;
-  font-weight: 600;
-  padding: 8px 6px;
-  cursor: pointer;
-  margin-bottom: -1px;
+  font-weight: 500;
 }
 .tab:hover { color: var(--text); }
-.tab:focus-visible {
-  outline-offset: -3px;
-  border-radius: 4px;
-}
+.tab:focus-visible { outline-offset: -2px; }
 .tab.is-active {
+  background: var(--seg-active);
+  box-shadow: var(--seg-shadow);
   color: var(--text);
-  border-bottom-color: var(--accent);
+  font-weight: 600;
 }
+/* While Focus Guard is off the tabs are `inert` as well as dimmed. */
+.tabs.is-disabled { opacity: 0.45; }
 
-/* Below the header, the tabs stay put and the active panel takes the rest of
-   the fixed height, scrolling if a view needs more room. */
-#app-body {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
+/* --- Panels and views --- */
 .panel { display: none; }
 .panel.is-active {
-  display: block;
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden; /* clip the sub-view slide-in animation */
-  /* Stretch the scroll area over the body's padding to the popup's edges, then
-     pad back in: content stays put, but the clip edge leaves room for focus
-     rings. */
-  margin: -4px -16px -16px;
-  padding: 4px 16px 16px;
-}
-.panel.is-active, .item-list {
-  scrollbar-width: thin;
-  scrollbar-color: var(--surface-2) transparent;
-}
-
-section { margin-bottom: 22px; }
-.panel section:last-child { margin-bottom: 0; }
-section h2 {
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--muted);
-  margin-bottom: 10px;
-}
-
-/* Section heading with an inline control floated to the right. */
-.section-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 16px;
-}
-.section-head h2 { margin-bottom: 0; }
-
-/* A switch sitting beside a heading drops the row padding a toggle list has. */
-header .toggle,
-.section-head .toggle,
-.view-head .toggle { padding: 0; }
-
-/* A tab's main view fills the panel, so its "Change …" button sits at the
-   bottom of the popup. Main also centers its circle in the space above. */
-.main-view {
-  min-height: 100%;
   display: flex;
   flex-direction: column;
+  padding: 16px;
+  overflow-x: hidden; /* clip the sub-view slide-in */
+  overflow-y: auto;
 }
-.main-view > .wide-btn { margin-top: auto; }
-
-/* --- Current-tab action --- */
-#status-section {
+.view {
   flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.list-view { gap: 12px; }
+
+/* --- Sites tab: the current site --- */
+.site-line {
+  height: 22px;
+  flex: none;
+  min-width: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 16px;
+  gap: 8px;
 }
+.site-icon {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--icon-bg);
+  color: var(--icon-fg);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+.page-icon { width: 16px; height: 16px; color: var(--muted); }
+.site-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 600;
+}
+.chip {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 14px;
+  font-variant-numeric: tabular-nums;
+}
+.chip.is-danger { color: var(--danger-text); background: var(--danger-soft); }
+.chip.is-warn { color: var(--warn-text); background: var(--warn-soft); }
+.chip.is-neutral { color: var(--neutral-text); background: var(--neutral-soft); }
 
-/* --- Big circular action control --- */
-#action-circle-wrap {
-  position: relative; /* anchors the pill row under the circle */
-  width: 100%; /* full width, so the pill row has room for its pills */
+/* --- Sites tab: the circle --- */
+.circle-area {
+  flex: 1;
+  min-height: 0;
   display: flex;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
+  gap: 16px;
 }
-#action-circle {
+.circle {
   position: relative;
-  width: 180px;
-  height: 180px;
-  border: none;
+  width: 156px;
+  height: 156px;
+  flex: none;
+  border: 0;
   border-radius: 50%; /* round focus ring */
   background: transparent;
   padding: 0;
-  cursor: pointer;
 }
-/* Inner disc: the same dark gray in every state; the ring carries the colour. */
-#action-circle::before {
-  content: "";
-  position: absolute;
-  inset: 20px;
-  border-radius: 50%;
-  background: var(--surface);
-  transition: background 0.15s;
+.ring { position: absolute; inset: 0; width: 100%; height: 100%; }
+.ring-track, .ring-progress { fill: none; stroke-width: 7; }
+.ring-track { stroke: var(--track); transition: stroke 0.15s; }
+.ring-disc {
+  fill: var(--surface);
+  stroke: var(--disc-stroke);
+  stroke-width: 1;
+  transition: fill 0.15s;
 }
-#action-circle:not(:disabled):hover::before { background: var(--surface-2); }
+.circle:not(:disabled):hover .ring-disc { fill: var(--surface-hover); }
 
-/* Inert circle on pages that can't be blocked (chrome://, new tab, etc.) */
-#action-circle:disabled { cursor: default; opacity: 0.55; }
-
-.ring {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  transform: rotate(-90deg); /* start progress at top */
-}
-.ring-track {
-  fill: none;
-  stroke: var(--surface-2);
-  stroke-width: 6;
-  transition: stroke 0.15s;
-}
-/* State colour on the ring: indigo to block, red to unlock. The countdown keeps
-   the gray track under its amber progress arc. */
-#action-circle.is-block .ring-track   { stroke: var(--accent); }
-#action-circle.is-unblock .ring-track { stroke: var(--danger); }
-.ring-progress {
-  fill: none;
-  stroke: var(--warn);
-  stroke-width: 6;
+/* Ring colour per state: indigo to block, red to unlock, a dashed gray where
+   there's nothing to block. The countdown and the break draw a progress arc
+   over the gray track instead. */
+.circle.is-block .ring-track { stroke: var(--ring-block); }
+.circle.is-unblock .ring-track { stroke: var(--danger); }
+.circle.is-none .ring-track {
+  stroke: var(--dash);
+  stroke-width: 3;
+  stroke-dasharray: 6 8;
   stroke-linecap: round;
-  stroke-dasharray: 339.292; /* 2 * PI * 54 */
-  stroke-dashoffset: 0;
+}
+.ring-progress {
+  stroke: var(--warn);
+  stroke-linecap: round;
   transition: stroke-dashoffset 0.25s linear;
 }
+.circle.is-off .ring-progress { stroke: var(--break); }
 
 .circle-text {
   position: absolute;
@@ -253,90 +289,292 @@ header .toggle,
   pointer-events: none;
 }
 .circle-main {
-  font-size: 26px;
+  font-size: 24px;
   font-weight: 700;
-  color: var(--text);
+  letter-spacing: -0.01em;
+  line-height: 1.15;
   font-variant-numeric: tabular-nums;
-  line-height: 1.1;
 }
-.circle-sub {
-  font-size: 11px;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
+.circle.is-countdown .circle-main,
+.circle.is-off .circle-main { font-size: 30px; }
+.circle.is-none .circle-main { font-size: 20px; color: var(--neutral-text); }
+.circle-sub { font-size: 12px; color: var(--muted); }
 
-/* --- Secondary unlock pills under the circle (2× and 3× in red, "+1 min" in
-   amber). The row hangs below the circle without taking up layout space, so
-   the circle stays centered and doesn't jump between states. --- */
+/* --- Buttons under the circle --- */
 .pill-row {
-  position: absolute;
-  top: calc(100% + 14px);
-  left: 0;
-  right: 0;
+  height: 32px;
+  flex: none;
   display: flex;
   justify-content: center;
   gap: 8px;
 }
-.pill-btn {
-  --pill-color: var(--danger);
+.pill {
+  --pill: var(--line);
+  height: 32px;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: 32px;
   padding: 0 14px;
   border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--pill-color) 50%, transparent);
+  border: 1px solid color-mix(in srgb, var(--pill) 50%, transparent);
   background: var(--surface);
-  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
   transition: border-color 0.15s, background 0.15s;
 }
-#add-minute-btn { --pill-color: var(--warn); }
-.pill-btn:not(:disabled):hover {
-  border-color: var(--pill-color);
-  background: var(--surface-2);
-}
-.pill-btn:disabled { opacity: 0.35; cursor: default; }
-.pill-main { font-size: 14px; font-weight: 700; }
-.pill-sub {
-  font-size: 12px;
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
-}
-.pill-sub::before { content: "·"; margin-right: 6px; }
-
-/* --- Buttons: primary (solid indigo), secondary (.wide-btn), danger --- */
-.btn-primary {
+.pill.is-danger { --pill: var(--danger); }
+.pill.is-warn { --pill: var(--warn); }
+.pill.is-accent { --pill: var(--ring-block); }
+.pill:not(:disabled):hover { border-color: var(--pill); background: var(--surface-hover); }
+.pill:disabled { opacity: 0.4; }
+.pill.is-solid {
+  padding: 0 18px;
+  border-color: transparent;
   background: var(--accent);
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  padding: 8px 14px;
+  color: #ffffff;
+}
+.pill.is-solid:hover { border-color: transparent; background: var(--accent-hover); }
+.pill-main { font-weight: 700; }
+.pill-sub { font-size: 12px; font-weight: 400; color: var(--muted); }
+
+/* --- Full-width rows that open a list or run an action --- */
+.nav-row {
+  width: 100%;
+  height: 44px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px 0 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  font-size: 14px;
+  font-weight: 500;
+  text-align: left;
+  transition: background 0.15s, border-color 0.15s;
+}
+.nav-row:not(:disabled):hover { background: var(--surface-hover); }
+.nav-row:disabled { opacity: 0.45; }
+.nav-row svg { width: 16px; height: 16px; color: var(--muted); }
+.nav-row-value { margin-left: auto; font-size: 13px; color: var(--muted); }
+
+.danger-row { gap: 10px; padding: 0 14px; color: var(--danger-text); }
+.danger-row svg { color: currentColor; }
+.danger-row.is-armed { border-color: var(--danger); }
+
+/* --- Cards of rows (YouTube switches, Settings) --- */
+.card {
+  flex: none;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  overflow: hidden;
+}
+.row {
+  width: 100%;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+}
+.row + .row { height: 45px; border-top: 1px solid var(--line-soft); }
+.row-tall { height: 52px; }
+label.row { cursor: pointer; }
+.row > .switch, .row > .stepper { margin-left: auto; }
+.row-text { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.row-title { font-weight: 600; }
+.row-hint { font-size: 12px; color: var(--muted); }
+/* Sub-options inactive while "YouTube focus" is off. */
+.row.is-disabled { opacity: 0.45; pointer-events: none; }
+
+.action-row {
+  border: 0;
+  background: transparent;
+  font-size: 14px;
+  text-align: left;
+  transition: background 0.15s;
+}
+.action-row:hover { background: var(--surface-hover); }
+.action-row svg { width: 16px; height: 16px; color: var(--muted); }
+
+/* --- Settings --- */
+.section-title {
+  height: 14px;
+  margin: 0 2px 6px;
+  font-size: 11px;
+  line-height: 14px;
   font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.stepper {
+  height: 30px;
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--field-bg);
+  overflow: hidden;
+}
+.step-btn {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+}
+.step-btn:not(:disabled):hover { color: var(--text); background: var(--surface-hover); }
+.step-btn:disabled { opacity: 0.35; }
+.step-btn:focus-visible { outline-offset: -2px; }
+.step-btn svg { width: 14px; height: 14px; }
+.stepper-input {
+  width: 36px;
+  height: 28px;
+  padding: 0 3px 0 0;
+  border: 0;
+  background: transparent;
   font-size: 13px;
-  cursor: pointer;
+  font-weight: 600;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  appearance: textfield;
+}
+.stepper-input::-webkit-inner-spin-button,
+.stepper-input::-webkit-outer-spin-button { appearance: none; margin: 0; }
+.stepper-input:focus-visible { outline-offset: -2px; }
+.stepper-unit { font-size: 13px; color: var(--muted); }
+
+/* Status messages float over the bottom of the Settings tab, which has no
+   free row to hold them. */
+.toast {
+  position: fixed;
+  left: 16px;
+  right: 16px;
+  bottom: 12px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--text);
+  color: var(--bg);
+  font-size: 12px;
+  text-align: center;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+}
+.toast:empty { display: none; }
+.toast.is-error { background: var(--danger); color: #ffffff; }
+
+/* --- List views (blocked sites, allowed channels) --- */
+/* A list view fills the panel: its heading, Back and Add field stay put, and the
+   list scrolls on its own inside its box. */
+.view-head {
+  height: 32px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.view-head h2 { font-size: 15px; font-weight: 600; }
+.back-btn {
+  width: 32px;
+  height: 32px;
+  margin-left: -8px; /* line the arrow up with the content's left edge */
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  transition: background 0.15s, color 0.15s;
+}
+.back-btn:hover { background: var(--surface); color: var(--text); }
+.back-btn svg { width: 18px; height: 18px; }
+
+.add-form { height: 36px; flex: none; display: flex; gap: 8px; }
+.text-input {
+  flex: 1;
+  min-width: 0;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  font-size: 13px;
+}
+.text-input::placeholder { color: var(--muted); }
+.text-input:focus-visible { outline-offset: -1px; }
+.btn-primary {
+  height: 36px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--accent);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
 }
 .btn-primary:hover { background: var(--accent-hover); }
 
-.wide-btn {
-  display: block;
-  width: 100%;
+.list-box {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-radius: 12px;
+  border: 1px solid var(--line);
   background: var(--surface);
-  border: 1px solid var(--surface-2);
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 600;
-  padding: 10px 12px;
-  cursor: pointer;
-  transition: border-color 0.15s;
+  overflow: hidden;
 }
-.wide-btn:hover { border-color: var(--accent); }
-.wide-btn:disabled { opacity: 0.4; cursor: default; }
-.wide-btn:disabled:hover { border-color: var(--surface-2); }
-
-.danger-btn { color: var(--danger); }
-.danger-btn:hover { border-color: var(--danger); }
-.wide-btn.is-armed { border-color: var(--danger); color: var(--danger); }
+.item-list {
+  flex: 1;
+  min-height: 0;
+  list-style: none;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+.item-list li {
+  height: 41px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 6px 0 12px;
+  border-top: 1px solid var(--line-soft);
+  font-size: 13.5px;
+}
+.item-list li:first-child { height: 40px; border-top: 0; }
+.item-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.item-list .chip { margin-left: auto; }
+.remove-btn {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  margin-left: auto;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+}
+.chip + .remove-btn { margin-left: 0; }
+.remove-btn:hover { color: var(--danger-text); background: var(--danger-soft); }
+.remove-btn svg { width: 14px; height: 14px; }
+.empty {
+  margin: auto;
+  padding: 16px;
+  font-size: 13px;
+  color: var(--muted);
+  text-align: center;
+}
 
 /* --- Sub-view sliding animation --- */
 @keyframes fg-slide-in-right {
@@ -353,170 +591,3 @@ header .toggle,
 @media (prefers-reduced-motion: reduce) {
   .slide-in-right, .slide-in-left { animation: none; }
 }
-
-/* --- List views (blocked sites, allowed channels) --- */
-/* A list view fills the panel: its heading, Back and Add field stay put, and the
-   list scrolls on its own once it runs out of room. */
-.list-view {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-#channels-editor {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-/* "← Heading" row at the top of a list view. */
-.view-head {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 14px;
-}
-.view-head h2 { font-size: 15px; font-weight: 600; }
-.view-head .toggle { margin-left: auto; }
-.back-btn {
-  display: grid;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  margin-left: -6px; /* line the arrow up with the content's left edge */
-  background: transparent;
-  border: none;
-  border-radius: 8px;
-  color: var(--muted);
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s;
-}
-.back-btn svg { width: 18px; height: 18px; }
-.back-btn:hover { background: var(--surface); color: var(--text); }
-
-.add-form { display: flex; gap: 8px; margin-bottom: 12px; }
-.text-input {
-  flex: 1;
-  min-width: 0;
-  background: var(--surface);
-  border: 1px solid var(--surface-2);
-  border-radius: 8px;
-  padding: 8px 10px;
-  font-size: 13px;
-}
-
-.item-list {
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-height: 0;
-  overflow-y: auto;
-}
-.item-list li {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: var(--surface);
-  border-radius: 8px;
-  padding: 6px 6px 6px 12px;
-  font-size: 13px;
-}
-.item-list li.is-snoozed { opacity: 0.5; }
-.item-list li > span {
-  flex: 1;
-  min-width: 0;
-  overflow-wrap: anywhere; /* long names wrap rather than overflow */
-}
-/* The ✕ stays quiet until you point at it. */
-.item-list li > button {
-  display: grid;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  flex-shrink: 0;
-  background: transparent;
-  border: none;
-  border-radius: 6px;
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1;
-  cursor: pointer;
-}
-.item-list li > button:hover { color: var(--danger); background: var(--surface-2); }
-
-.empty { color: var(--muted); font-size: 13px; font-style: italic; }
-.hint { color: var(--muted); font-size: 12px; line-height: 1.5; margin-top: 8px; }
-.hidden { display: none !important; }
-
-/* --- Settings tab --- */
-/* A labelled value row, matching the toggle rows (label left, control right). */
-.setting-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  font-size: 14px;
-}
-.setting-row + .setting-row { margin-top: 10px; }
-.number-input {
-  width: 76px; /* room for "1440" beside the stepper */
-  background: var(--surface);
-  border: 1px solid var(--surface-2);
-  border-radius: 8px;
-  /* Chrome keeps room for the stepper arrows on the right, so pad the left by
-     about as much to keep the centered number in the middle of the field. */
-  padding: 8px 4px 8px 18px;
-  font-size: 14px;
-  text-align: center;
-}
-
-/* Buttons that share a row split it evenly. */
-.btn-row { display: flex; gap: 8px; }
-
-.settings-status { font-size: 12px; min-height: 16px; margin-top: 6px; }
-.settings-status.is-ok { color: #4ade80; }
-.settings-status.is-error { color: var(--danger); }
-
-.toggle {
-  display: flex;
-  align-items: center;
-  justify-content: space-between; /* label left, switch right */
-  gap: 10px;
-  padding: 7px 0;
-  font-size: 14px;
-  cursor: pointer;
-}
-
-/* Every toggle renders as a switch: gray when off, blue when on. */
-.toggle input[type="checkbox"] {
-  appearance: none;
-  -webkit-appearance: none;
-  position: relative;
-  flex-shrink: 0;
-  width: 34px;
-  height: 20px;
-  border-radius: 999px;
-  background: var(--surface-2);
-  cursor: pointer;
-  transition: background 0.15s;
-}
-.toggle input[type="checkbox"]::before {
-  content: "";
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: #fff;
-  transition: transform 0.15s;
-}
-.toggle input[type="checkbox"]:checked { background: var(--accent); }
-.toggle input[type="checkbox"]:checked::before { transform: translateX(14px); }
-
-/* Sub-options inactive while "Enable YouTube tweaks" is off. */
-.toggle.is-disabled { opacity: 0.4; pointer-events: none; }
-
-/* Channel editor inactive when the allow-list "Enable" toggle is off. */
-#channels-editor.is-disabled { opacity: 0.4; pointer-events: none; }
