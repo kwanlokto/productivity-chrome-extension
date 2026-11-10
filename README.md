@@ -10,7 +10,8 @@ distracting sites and taming YouTube's doom-scroll machinery.
   lifts the block for a set number of minutes (then it re-blocks automatically).
   While a site is unlocked, its tabs show the time left on the toolbar icon. In the
   last minute the badge turns red and a small bar on the page says when the site
-  blocks again, with **+1 min** and a way to hide it.
+  blocks again, with **+1 min** and a way to hide it. With 30 seconds left the
+  popup opens over the site, once per unlock.
 - **Custom block list** — Add or remove any domain from the popup, or block the site
   you're currently on. Your list syncs across your Chrome profile via
   `chrome.storage.sync`.
@@ -181,8 +182,10 @@ This extension requests broad access, so the dashboard will require you to justi
   the space under their heading and scroll on their own, so Back and the Add field
   stay in view. Don't change the size without updating this rule (and the test
   that enforces it, [tests/popup-size.spec.js](tests/popup-size.spec.js)).
-- The popup never opens by itself; an unlock's time left shows on the toolbar icon
-  instead, and in the last minute on the page itself.
+- The popup opens by itself only once per unlock: with 30 seconds left, over the
+  unlocked site's tab, when Chrome is in front and not full screen. It doesn't
+  open again after you close it, even after **+1 min**, and hiding the warning bar
+  stops it from opening for that unlock.
 - **Everything lines up on two edges:** labels start 31px from the left, and
   switches, arrows and ✕ buttons end 309px from it
   ([tests/alignment.spec.js](tests/alignment.spec.js) checks this).

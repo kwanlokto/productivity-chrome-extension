@@ -1,6 +1,5 @@
 // The toolbar badge: while a site is unlocked, its tabs show the time left on
-// the Focus Guard icon, in amber, then in red for the last minute. The popup
-// never opens by itself.
+// the Focus Guard icon, in amber, then in red for the last minute.
 
 import { test, expect, unlockSite } from "./fixtures.js";
 
@@ -98,7 +97,7 @@ test("there's no badge while Focus Guard is off", async ({ context, background }
   await expect.poll(() => badgeOf(background, news.tabId)).toBe("5m");
 });
 
-test("the background no longer schedules the popup to open", async ({ background }) => {
+test("the old popup-reopening alarm is gone", async ({ background }) => {
   await unlockSite(background, "news.test", 40_000);
 
   const alarms = await background.evaluate(() => chrome.alarms.getAll());

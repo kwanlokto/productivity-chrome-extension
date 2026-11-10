@@ -174,7 +174,8 @@ async function dropOrphanedSnoozes() {
 // whole minutes ("5m" … "1m") in amber, then seconds ("59s" … "1s") in red in
 // the last minute (WARNING_MS). When the last minute starts, those tabs also get
 // the warning bar (content/unlock-warning.js). Other tabs show nothing, and
-// nothing shows while Focus Guard is off. The popup never opens by itself.
+// nothing shows while Focus Guard is off. In the last 30 seconds the popup
+// opens once (see "Opening the popup" below).
 
 const BADGE_ALARM = "badge-tick";
 
@@ -315,6 +316,8 @@ async function updateBadges() {
     if (tab.id != null) paintTab(tab, snoozed, now);
   }
 
+  if (Object.values(snoozed).some((e) => expiryOf(e) - now <= POPUP_MS)) checkPopup();
+
   const expiries = Object.values(snoozed).map(expiryOf);
   if (expiries.length === 0) {
     await chrome.alarms.clear(BADGE_ALARM);
@@ -338,6 +341,81 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
 chrome.tabs.onRemoved.addListener((tabId) => {
   badgeStates.delete(tabId);
   warnedTabs.delete(tabId);
+});
+
+// --- Opening the popup ---
+// When an unlock has POPUP_MS or less left, the popup opens by itself, once per
+// unlock: only over the site's own tab, in the Chrome window in front, not in
+// full screen, and not if the warning bar was hidden for this unlock. Closing
+// it is final for that unlock, "+1 min" included (versions before 1.3.0
+// reopened it every time it closed, which is what made it a nag). The checks
+// run on every badge tick (each second in the last minute), so arriving on the
+// site's tab, coming back to Chrome, or leaving full screen late still opens it.
+
+const POPUP_MS = 30_000;
+
+let popupChain = Promise.resolve();
+
+/**
+ * Open the popup if an unlock's last 30 seconds call for it. Serialized like
+ * syncRules, so two triggers in a row can't both open it.
+ */
+function checkPopup() {
+  popupChain = popupChain
+    .then(doCheckPopup)
+    .catch((e) => console.error("[Focus Guard] opening the popup failed:", e));
+  return popupChain;
+}
+
+/** One check: see "Opening the popup" above for the conditions. */
+async function doCheckPopup() {
+  const snoozed = await badgeSnoozes();
+  if (Object.keys(snoozed).length === 0) return;
+
+  let win;
+  try {
+    win = await chrome.windows.getLastFocused({ populate: true, windowTypes: ["normal"] });
+  } catch {
+    return; // no browser window
+  }
+  const tab = win.tabs?.find((t) => t.active);
+  const domain = unlockedDomainFor(tab?.url, snoozed);
+  if (!domain) return;
+  const remaining = expiryOf(snoozed[domain]) - Date.now();
+  if (remaining > POPUP_MS || remaining <= 0) return;
+
+  const key = unlockKey(snoozed[domain]);
+  const { popupOpened = {}, dismissedWarnings = {} } = await chrome.storage.session.get([
+    "popupOpened",
+    "dismissedWarnings",
+  ]);
+  if (popupOpened[domain] === key) return;
+  // ✕ on the warning bar, in any of the site's tabs, means "leave me alone".
+  if (Object.values(dismissedWarnings).includes(key)) return;
+
+  // Already open (the user opened it): that counts as its one time. Checked
+  // before focus, because Chrome reports the window unfocused while it's open.
+  const open = await chrome.runtime.getContexts({ contextTypes: ["POPUP"] });
+  if (open.length === 0) {
+    // Another app in front, or full screen: wait.
+    if (!win.focused || win.state === "fullscreen") return;
+    try {
+      await chrome.action.openPopup({ windowId: win.id });
+    } catch {
+      return; // Chrome refused (e.g. the window just lost focus): try next tick
+    }
+  }
+  // Kept in session storage, so the worker sleeping can't make it open twice.
+  // Entries for unlocks that have ended are dropped on the way.
+  const kept = Object.entries(popupOpened).filter(([d]) => snoozed[d]);
+  await chrome.storage.session.set({
+    popupOpened: { ...Object.fromEntries(kept), [domain]: key },
+  });
+}
+
+chrome.tabs.onActivated.addListener(() => checkPopup());
+chrome.windows.onFocusChanged.addListener((windowId) => {
+  if (windowId !== chrome.windows.WINDOW_ID_NONE) checkPopup();
 });
 
 // --- Messages from the warning bar ---
