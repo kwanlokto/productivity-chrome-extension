@@ -37,11 +37,27 @@ test("during an unlock, the circle counts down with +1 min and Block now", async
 
   await expect(shown(popup, "Unlocked")).toBeVisible();
   // The circle only shows the time; ending the unlock is the Block now button.
-  const circle = popup.getByRole("button", { name: /^1:3\d left$/ });
+  const circle = popup.getByRole("button", { name: /^1:3\d until blocked$/ });
   await expect(circle).toBeVisible();
   await expect(circle).toBeDisabled();
   await expect(popup.getByRole("button", { name: "+1 min" })).toBeEnabled();
   await expect(popup.getByRole("button", { name: "Block now" })).toBeEnabled();
+});
+
+test("in the unlock's last minute, the countdown turns red", async ({ openPopup }) => {
+  const popup = await openPopup({ activeTab: FACEBOOK, local: unlockedFacebook(45_000) });
+  await popup.emulateMedia({ colorScheme: "dark" });
+
+  await expect(popup.getByText(/^0:4\d$/)).toHaveCSS("color", "rgb(248, 113, 113)");
+  await expect(shown(popup, "Unlocked")).toHaveCSS("color", "rgb(248, 113, 113)");
+});
+
+test("before the last minute, the countdown stays amber", async ({ openPopup }) => {
+  const popup = await openPopup({ activeTab: FACEBOOK, local: unlockedFacebook(96_000) });
+  await popup.emulateMedia({ colorScheme: "dark" });
+
+  await expect(popup.getByText(/^1:3\d$/)).toHaveCSS("color", "rgb(230, 233, 239)");
+  await expect(shown(popup, "Unlocked")).toHaveCSS("color", "rgb(251, 191, 36)");
 });
 
 test("+1 min adds a minute to the unlock", async ({ openPopup, readStorage }) => {

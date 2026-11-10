@@ -39,6 +39,13 @@ export const MAX_UNLOCK_MINUTES = 1440;
 /** Default duration suggested when pausing the whole extension, in minutes. */
 export const DEFAULT_PAUSE_MINUTES = 15;
 
+/**
+ * An unlock's last minute, in ms: from here the toolbar badge counts seconds in
+ * red, the popup's countdown turns red, and the warning bar shows on the site.
+ * content/unlock-warning.js can't import, so it keeps its own copy.
+ */
+export const WARNING_MS = 59_000;
+
 /* -------------------------------- Helpers --------------------------------- */
 
 /**

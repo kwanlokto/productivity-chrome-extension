@@ -2,7 +2,7 @@
 
 import * as actions from "./actions.js";
 
-import { DEFAULT_UNLOCK_MINUTES, RING_CIRCUMFERENCE } from "./config.js";
+import { DEFAULT_UNLOCK_MINUTES, RING_CIRCUMFERENCE, WARNING_MS } from "./config.js";
 import { domainMatchesBlocked, getCurrentTab } from "./tabs.js";
 import {
   capOf,
@@ -37,7 +37,8 @@ let listTimer = null;
 /* ------------------------------ Domain list ------------------------------- */
 
 /**
- * Render the blocked-domain list. An unlocked domain shows its time left.
+ * Render the blocked-domain list. An unlocked domain shows its time left. Names
+ * have no icon in front, so they start on the same edge as every other label.
  * @param {string[]} domains
  * @param {Record<string, unknown>} snoozed active snooze map
  */
@@ -53,15 +54,10 @@ function renderDomains(domains, snoozed) {
   for (const domain of domains) {
     const li = document.createElement("li");
 
-    const icon = document.createElement("span");
-    icon.className = "site-icon";
-    icon.setAttribute("aria-hidden", "true");
-    icon.textContent = domain[0];
-
     const name = document.createElement("span");
     name.className = "item-name";
     name.textContent = domain;
-    li.append(icon, name);
+    li.append(name);
 
     if (snoozed[domain]) {
       const chip = document.createElement("span");
@@ -236,12 +232,17 @@ async function updateStatusCircle() {
     // so it matches the clock even after "+1 min" (which keeps the cap).
     const cap = Math.max(1, capOf(entry));
     showSite(domain, { status: "Unlocked", tone: "warn" });
-    showCircle("countdown", "", "left", null);
+    showCircle("countdown", "", "until blocked", null);
     showPill(addMinuteBtn, () => run(() => actions.extendSnooze(matched, 1)));
     showPill(blockNowBtn, () => run(() => actions.unsnooze(matched)));
     startClock(expiryOf(entry), (remaining) => {
       circleMain.textContent = formatClock(remaining);
       setRing(remaining / cap);
+      // The last minute: the ring, the time and the "Unlocked" label turn red.
+      const warning = remaining <= WARNING_MS;
+      circle.classList.toggle("is-warning", warning);
+      siteStatus.classList.toggle("is-warn", !warning);
+      siteStatus.classList.toggle("is-danger", warning);
       // "+1 min" can't top the unlock up past its original length.
       addMinuteBtn.disabled = remaining >= cap - 1500;
     });

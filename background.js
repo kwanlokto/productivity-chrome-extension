@@ -9,7 +9,10 @@ import {
   normalizeDomain,
   blockRegexFor,
   blockSubstitutionFor,
+  WARNING_MS,
 } from "./shared/core.js";
+// The popup's rule for "+1 min", reused for the warning bar's button.
+import { extendSnooze } from "./popup/storage.js";
 
 // --- Snooze helpers ---
 // Snoozed domains live in local storage as { domain -> { start, expiry } }.
@@ -166,32 +169,39 @@ async function dropOrphanedSnoozes() {
   await setSnoozed(snoozed);
 }
 
-// --- Toolbar badge ---
+// --- Toolbar badge and the last-minute warning ---
 // While a site is unlocked, its tabs show the time left on the toolbar icon:
-// whole minutes ("5m" … "1m"), then seconds ("59s" … "1s") in the last minute.
-// Other tabs show nothing. The popup never opens by itself.
+// whole minutes ("5m" … "1m") in amber, then seconds ("59s" … "1s") in red in
+// the last minute (WARNING_MS). When the last minute starts, those tabs also get
+// the warning bar (content/unlock-warning.js). Other tabs show nothing, and
+// nothing shows while Focus Guard is off. The popup never opens by itself.
 
 const BADGE_ALARM = "badge-tick";
 
 /** Alarms from earlier versions that may still be scheduled after an update. */
 const RETIRED_ALARMS = ["open-30"];
 
-/** Last text set per tab, so a tick only touches badges that change. */
-const badgeTexts = new Map();
+const BADGE_COLORS = {
+  normal: { background: "#f59e0b", text: "#111827" },
+  warning: { background: "#dc2626", text: "#ffffff" },
+};
+
+/** Last badge set per tab ("text|warning"), so a tick only touches changes. */
+const badgeStates = new Map();
+
+/** Per tab, the unlock (unlockKey) its current page already has the bar for. */
+const warnedTabs = new Map();
 
 // Short waits (under the 30s minimum alarm delay) use a timer; the worker is
 // still awake then because it just ran.
 let badgeTimer = null;
-
-chrome.action.setBadgeBackgroundColor({ color: "#f59e0b" });
-chrome.action.setBadgeTextColor?.({ color: "#111827" });
 
 /**
  * @param {number} remaining ms left on an unlock
  * @returns {string} e.g. "5m", or "42s" in the last minute
  */
 function badgeText(remaining) {
-  if (remaining > 59_000) return Math.ceil(remaining / 60_000) + "m";
+  if (remaining > WARNING_MS) return Math.ceil(remaining / 60_000) + "m";
   return Math.max(1, Math.ceil(remaining / 1000)) + "s";
 }
 
@@ -203,9 +213,9 @@ function badgeText(remaining) {
  */
 function nextBadgeChange(expiry, now) {
   const remaining = expiry - now;
-  if (remaining > 59_000) {
+  if (remaining > WARNING_MS) {
     const minutes = Math.ceil(remaining / 60_000);
-    return expiry - Math.max((minutes - 1) * 60_000, 59_000);
+    return expiry - Math.max((minutes - 1) * 60_000, WARNING_MS);
   }
   const seconds = Math.ceil(remaining / 1000);
   return expiry - (seconds - 1) * 1000;
@@ -224,18 +234,75 @@ function unlockedDomainFor(url, snoozed) {
 }
 
 /**
+ * Identifies one unlock: "+1 min" keeps it, a new unlock changes it.
+ * @param {number | { start?: number, expiry: number }} entry
+ */
+function unlockKey(entry) {
+  return typeof entry === "number" ? entry : entry.start ?? entry.expiry;
+}
+
+/**
  * @param {number} tabId
  * @param {string} text "" clears the badge
+ * @param {boolean} [warning] the red last-minute colours
  */
-function setTabBadge(tabId, text) {
-  if (badgeTexts.get(tabId) === text) return;
-  badgeTexts.set(tabId, text);
-  chrome.action.setBadgeText({ tabId, text }).catch(() => badgeTexts.delete(tabId));
+function setTabBadge(tabId, text, warning = false) {
+  const state = `${text}|${warning}`;
+  if (badgeStates.get(tabId) === state) return;
+  badgeStates.set(tabId, state);
+  const colors = warning ? BADGE_COLORS.warning : BADGE_COLORS.normal;
+  Promise.all([
+    chrome.action.setBadgeText({ tabId, text }),
+    chrome.action.setBadgeBackgroundColor({ tabId, color: colors.background }),
+    chrome.action.setBadgeTextColor?.({ tabId, color: colors.text }),
+  ]).catch(() => badgeStates.delete(tabId));
 }
 
 /** Active unlocks that should show a badge: none while Focus Guard is off. */
 async function badgeSnoozes() {
   return (await isPaused()) ? {} : getSnoozed();
+}
+
+/**
+ * Paint one tab's badge, and give it the warning bar once its unlock's last
+ * minute starts.
+ * @param {chrome.tabs.Tab} tab
+ * @param {Record<string, unknown>} snoozed from badgeSnoozes
+ * @param {number} now
+ */
+function paintTab(tab, snoozed, now) {
+  const domain = unlockedDomainFor(tab.url, snoozed);
+  if (!domain) {
+    setTabBadge(tab.id, "");
+    return;
+  }
+  const remaining = expiryOf(snoozed[domain]) - now;
+  const warning = remaining <= WARNING_MS;
+  setTabBadge(tab.id, badgeText(remaining), warning);
+  // A page still loading gets the bar from onUpdated when it completes.
+  if (warning && tab.status === "complete") showWarning(tab.id, snoozed[domain]);
+}
+
+/**
+ * Put the warning bar into a tab, once per page and unlock, unless it was
+ * dismissed for this unlock. The bar then follows the unlock by itself.
+ * @param {number} tabId
+ * @param {number | { start?: number, expiry: number }} entry
+ */
+async function showWarning(tabId, entry) {
+  const key = unlockKey(entry);
+  if (warnedTabs.get(tabId) === key) return;
+  warnedTabs.set(tabId, key);
+  const { dismissedWarnings = {} } = await chrome.storage.session.get("dismissedWarnings");
+  if (dismissedWarnings[tabId] === key) return;
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      files: ["content/unlock-warning.js"],
+    });
+  } catch {
+    // A page extensions can't script (e.g. the Web Store), or the tab closed.
+  }
 }
 
 /** Repaint every tab's badge and schedule the next change. */
@@ -245,9 +312,7 @@ async function updateBadges() {
   const [snoozed, tabs] = await Promise.all([badgeSnoozes(), chrome.tabs.query({})]);
   const now = Date.now();
   for (const tab of tabs) {
-    if (tab.id == null) continue;
-    const domain = unlockedDomainFor(tab.url, snoozed);
-    setTabBadge(tab.id, domain ? badgeText(expiryOf(snoozed[domain]) - now) : "");
+    if (tab.id != null) paintTab(tab, snoozed, now);
   }
 
   const expiries = Object.values(snoozed).map(expiryOf);
@@ -264,23 +329,64 @@ async function updateBadges() {
   }
 }
 
+chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+  if (changeInfo.status === "loading") warnedTabs.delete(tabId); // a new page
+  if (!changeInfo.url && changeInfo.status !== "complete") return;
+  badgeStates.delete(tabId); // Chrome may have reset the badge on navigation
+  paintTab(tab, await badgeSnoozes(), Date.now());
+});
+chrome.tabs.onRemoved.addListener((tabId) => {
+  badgeStates.delete(tabId);
+  warnedTabs.delete(tabId);
+});
+
+// --- Messages from the warning bar ---
+
 /**
- * Repaint one tab's badge, e.g. after it navigates.
- * @param {number} tabId
- * @param {string | undefined} url
+ * "+1 min" on the bar: extend the unlock of the site the tab is on, with the
+ * popup's rule (never past the unlock's original length).
+ * @param {chrome.tabs.Tab} tab
  */
-async function updateTabBadge(tabId, url) {
-  const snoozed = await badgeSnoozes();
-  const domain = unlockedDomainFor(url, snoozed);
-  setTabBadge(tabId, domain ? badgeText(expiryOf(snoozed[domain]) - Date.now()) : "");
+async function extendUnlockFromTab(tab) {
+  const domain = unlockedDomainFor(tab.url, await badgeSnoozes());
+  if (!domain) return;
+  const expiry = await extendSnooze(domain, 60_000);
+  if (expiry != null) await chrome.alarms.create("snooze:" + domain, { when: expiry });
 }
 
-chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  if (!changeInfo.url && changeInfo.status !== "complete") return;
-  badgeTexts.delete(tabId); // Chrome may have reset it on navigation
-  updateTabBadge(tabId, tab.url);
+/**
+ * ✕ on the bar: don't show it again in this tab for the rest of this unlock.
+ * Kept in session storage so it survives the worker sleeping after "+1 min".
+ * @param {chrome.tabs.Tab} tab
+ */
+async function dismissWarningInTab(tab) {
+  const snoozed = await getSnoozed();
+  const domain = unlockedDomainFor(tab.url, snoozed);
+  if (!domain) return;
+  const { dismissedWarnings = {} } = await chrome.storage.session.get("dismissedWarnings");
+  dismissedWarnings[tab.id] = unlockKey(snoozed[domain]);
+  await chrome.storage.session.set({ dismissedWarnings });
+}
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  // The domain always comes from the sending tab, never from the message.
+  const tab = sender.tab;
+  if (tab?.id == null) return;
+  const handlers = {
+    "fg-extend-unlock": extendUnlockFromTab,
+    "fg-dismiss-warning": dismissWarningInTab,
+  };
+  const handler = handlers[message?.type];
+  if (!handler) return;
+  handler(tab).then(
+    () => sendResponse(true),
+    (e) => {
+      console.error("[Focus Guard] warning bar action failed:", e);
+      sendResponse(false);
+    },
+  );
+  return true; // respond asynchronously
 });
-chrome.tabs.onRemoved.addListener((tabId) => badgeTexts.delete(tabId));
 
 // --- Alarms ---
 chrome.alarms.onAlarm.addListener(async (alarm) => {
