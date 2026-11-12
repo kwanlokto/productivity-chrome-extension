@@ -85,3 +85,30 @@ export const test = base.extend({
 });
 
 export { expect };
+
+/**
+ * Put `domain` on the blocked list, unlocked with `msLeft` to go, the way the
+ * popup leaves things after Unlock. The unlock is written before the list
+ * changes, so the background's rule rebuild skips the domain instead of adding
+ * a rule that would bounce the test page to the blocked page.
+ * @param {import("@playwright/test").Worker} background
+ * @param {string} domain
+ * @param {number} msLeft
+ * @param {{ cap?: number, local?: Record<string, unknown> }} [options]
+ *   `cap` is the unlock's original length (default 5 minutes); `local` is more
+ *   chrome.storage.local to set alongside.
+ */
+export function unlockSite(background, domain, msLeft, { cap = 5 * 60_000, local = {} } = {}) {
+  return background.evaluate(
+    async ({ domain, msLeft, cap, local }) => {
+      const now = Date.now();
+      await chrome.storage.local.set({
+        ...local,
+        snoozed: { [domain]: { start: now - (cap - msLeft), expiry: now + msLeft, cap } },
+      });
+      const { blockedDomains } = await chrome.storage.sync.get("blockedDomains");
+      await chrome.storage.sync.set({ blockedDomains: [...blockedDomains, domain] });
+    },
+    { domain, msLeft, cap, local },
+  );
+}

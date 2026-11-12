@@ -16,7 +16,7 @@ Focus Guard: a Manifest V3 Chrome extension that blocks distracting sites (redir
 
 ## Architecture
 
-There are four runtime contexts. Their module systems differ:
+There are five runtime contexts. Their module systems differ:
 
 | Context | Files | Module type |
 |---|---|---|
@@ -24,8 +24,11 @@ There are four runtime contexts. Their module systems differ:
 | Popup | `popup/*.js`, entry `popup/popup.js` | ES modules |
 | YouTube content script | `content/youtube.js` + `content/youtube.css` | **Classic script.** It cannot `import`. |
 | Blocked page | `blocked.html` + `blocked.js` | Classic script |
+| Warning bar | `content/unlock-warning.js`, injected into an unlocked site's tabs by the background (`chrome.scripting`) | **Classic script.** It cannot `import`. |
 
-`shared/core.js` is the single source of truth for defaults, `normalizeDomain`, and the rule regex and redirect builders (`blockRegexFor`, `blockSubstitutionFor`). The background imports it directly. The popup re-exports it through `popup/config.js` and `popup/util.js`. The content script can't import it, so it reads storage directly and duplicates a little logic: `channelKey` mirrors `normalizeChannel`, and a missing `show*` flag counts as false (off). Keep these copies in sync by hand.
+`shared/core.js` is the single source of truth for defaults, `normalizeDomain`, `WARNING_MS` (an unlock's last minute), and the rule regex and redirect builders (`blockRegexFor`, `blockSubstitutionFor`). The background imports it directly. The popup re-exports it through `popup/config.js` and `popup/util.js`. The content scripts can't import it, so they read storage directly and duplicate a little logic. In `content/youtube.js`, `channelKey` mirrors `normalizeChannel`, and a missing `show*` flag counts as false (off). `content/unlock-warning.js` copies `WARNING_MS`, the `expiryOf` / `capOf` snooze-entry readers, and the popup's colors. Keep these copies in sync by hand.
+
+The background also imports `extendSnooze` from `popup/storage.js`, so "+1 min" on the warning bar follows exactly the popup's rule (never past the unlock's original length).
 
 ### Storage
 
@@ -35,6 +38,7 @@ All popup storage access goes through `popup/storage.js`.
 - `chrome.storage.local`: `snoozed` and `pausedUntil` (a ms timestamp for the whole-extension pause).
   - `snoozed` has the shape `{ [domain]: { start, expiry, cap } }`. Older entries may be a bare expiry number. Always read entries through `expiryOf` / `startOf` / `capOf`.
   - An unlock only exists for a domain on the blocked list. Removing a domain ends its unlock: `removeDomain` in `popup/actions.js` does it straight away, and the background's `dropOrphanedSnoozes` covers imports and other synced devices whenever `blockedDomains` changes.
+- `chrome.storage.session`: `dismissedWarnings` (`{ [tabId]: unlockKey }`), the tabs where the warning bar was hidden for the rest of an unlock, and `popupOpened` (`{ [domain]: unlockKey }`), the unlocks the popup has already opened for.
 
 A new synced setting must be added to `exportSettings`, `importSettings`, and `resetSettings` in `storage.js`, and usually also to the `onInstalled` seed in `background.js`.
 
@@ -55,8 +59,9 @@ The redirect target is `blocked.html?domain=<domain>&url=<full original URL>`, a
 
 - `snooze:<domain>` restores the block when an unlock ends and reloads open tabs on that domain (unless the domain has left the list or Focus Guard is off).
 - `fg-pause-end` clears `pausedUntil`. The storage listener then rebuilds the rules.
-- `badge-tick` repaints the toolbar badge. While a site is unlocked, each of its tabs shows the time left on the Focus Guard icon: `5m` … `1m`, then `59s` … `1s`. Other tabs, and every tab while Focus Guard is off, show nothing. `updateBadges` schedules the next change itself: an alarm for waits of 30s or more (the minimum alarm delay), a `setTimeout` for shorter ones.
-- **The popup never opens by itself.** Versions before 1.3.0 reopened it during the last 30s of an unlock (the `open-30` alarm and a `"popup"` runtime port). `RETIRED_ALARMS` clears that alarm on install and startup; don't bring the behavior back.
+- `badge-tick` repaints the toolbar badge. While a site is unlocked, each of its tabs shows the time left on the Focus Guard icon: `5m` … `1m` in amber, then `59s` … `1s` in red (the last minute, `WARNING_MS`). Badge colors are set per tab. Other tabs, and every tab while Focus Guard is off, show nothing. `updateBadges` schedules the next change itself: an alarm for waits of 30s or more (the minimum alarm delay), a `setTimeout` for shorter ones.
+- **The warning bar.** When a tab's unlock reaches its last minute, `paintTab` injects `content/unlock-warning.js` into it (once per page and unlock, tracked in `warnedTabs`; again after the tab loads a new page). The bar lives in an open shadow root at the top center of the page, and from then on follows the unlock from storage by itself: it hides when "+1 min" takes the unlock out of its last minute, returns when the last minute starts again, and goes away when the unlock ends or Focus Guard is switched off. Its buttons message the background (`fg-extend-unlock`, `fg-dismiss-warning`), which takes the domain from the sending tab, never from the message. Hiding the bar records the tab in `dismissedWarnings`, so it isn't injected again for that unlock.
+- **The popup opens by itself once per unlock**, when 30s or less are left (`POPUP_MS`, `checkPopup` in `background.js`). It opens only if the site's tab is the active tab of the focused window, the window isn't full screen, Focus Guard is on, and the warning bar wasn't hidden for this unlock in any tab. If the popup is already open at that point, that counts as its one time. Check for it first, because Chrome reports the window as unfocused while the popup is open. Once it has opened, it never opens again for that unlock, even after "+1 min" (the record is `popupOpened` in session storage). The check runs on every badge tick, which happens every second in the last minute, and on tab switches and window focus changes. So switching to the site, coming back to Chrome, or leaving full screen still opens it if it hasn't opened yet. **Don't make it reopen.** Versions before 1.3.0 reopened it every time it closed (the `open-30` alarm and a `"popup"` runtime port), which made it a nag. `RETIRED_ALARMS` still clears that alarm on install and startup.
 
 ### YouTube content script
 
@@ -77,24 +82,29 @@ To add a YouTube toggle:
 
 `header-view.js` owns the header's on/off switch for the whole extension (the `pausedUntil` pause), which applies across all tabs. While the extension is paused, it dims the tab bar and sets `inert` on it, and jumps to the Sites tab (through the `onSwitchedOff` callback from `popup.js`). The Sites tab then shows the break: `sites-view.js` puts the time left in the circle with a "Turn on now" button, disables the "Blocked sites" row, and closes the list if it was open. The YouTube and Settings tabs can't be reached while paused, so they need no "paused" handling of their own.
 
-**The circle** (`sites-view.js`, `updateStatusCircle`) has five states, each a `.circle.is-*` class: `unblock` (a blocked site: Unlock plus 2×/3×), `countdown` (an unlocked site: time left, "+1 min", "Block now"), `block` (a site that isn't blocked), `none` (a page that can't be blocked), and `off` (the break). Only `unblock` and `block` make the circle itself clickable; in the others it only displays.
+**The circle** (`sites-view.js`, `updateStatusCircle`) has five states, each a `.circle.is-*` class: `unblock` (a blocked site: Unlock plus 2×/3×), `countdown` (an unlocked site: "0:42 until blocked", "+1 min", "Block now"; in the last minute `.is-warning` turns it and the "Unlocked" label red), `block` (a site that isn't blocked), `none` (a page that can't be blocked), and `off` (the break). Only `unblock` and `block` make the circle itself clickable; in the others it only displays.
+
+**Alignment:** every label, field text, list item and section title starts on one inner edge, 31px from the popup's left (the 16px margin, a 1px border, 14px of padding), and every trailing control (switch, stepper, arrow, ✕) ends on one right edge, 309px. So rows don't get leading icons, and new rows use the same 14px padding. The header, tabs and card outlines sit on the outer edge (16px / 324px). The deliberate exceptions are the centered Sites tab and the centered titles of the list screens. `tests/alignment.spec.js` checks both edges on every view.
 
 **Fixed popup size:** the popup is a fixed 340 × 420px on every tab and view, so it never jumps in size as you switch tabs. 420 is exactly the height of the tallest views, so no view is left with dead space: every row, card and gap in `popup.css` has a fixed height, and the views add up to the panel's height. The circle area absorbs the difference between circle states (states without buttons under the circle center it). The list views (blocked sites, allowed channels) fill the panel: their "← heading" row and Add field stay put, and the list scrolls on its own inside its box. Adding a row to a view means taking the height from somewhere else in it. Don't change the size without updating this rule, the README's Notes, and `tests/popup-size.spec.js`, which checks the size and that no panel overflows.
 
-**Theme:** the popup and the blocked page follow Chrome's light or dark setting. `popup/popup.css` and the `<style>` in `blocked.html` each define the colors as tokens on `:root`, light first and dark under `prefers-color-scheme: dark`. The shared tokens use the same values in both files; keep them in sync by hand.
+**Theme:** the popup, the blocked page and the warning bar follow Chrome's light or dark setting. `popup/popup.css` and the `<style>` in `blocked.html` each define the colors as tokens on `:root`, light first and dark under `prefers-color-scheme: dark`; `content/unlock-warning.js` writes the same values directly into its shadow-root styles. The shared colors use the same values in all three; keep them in sync by hand.
 
 ### Tests
 
 `tests/fixtures.js` starts a fresh Chromium profile per test, with the repo root loaded unpacked:
 - The `openPopup({ sync, local, activeTab })` fixture seeds `chrome.storage` through the background service worker, then opens `popup/popup.html` in a tab. Seeding waits until the extension's install-time defaults are written, so they can't overwrite a test's seed.
 - The `readStorage(area, keys)` fixture reads storage back.
-- The `background` fixture is the service worker. `tests/badge.spec.js` uses it with real tabs (served by `context.route`) to read `chrome.action.getBadgeText`.
+- The `background` fixture is the service worker. `tests/badge.spec.js`, `tests/warning-bar.spec.js` and `tests/auto-popup.spec.js` use it with real tabs, whose pages are served by `context.route`. The badge tests read `chrome.action.getBadgeText` / `getBadgeBackgroundColor`; the warning-bar tests find the bar on the page (Playwright reaches into its open shadow root). The auto-popup tests swap `chrome.action.openPopup` in the worker for a counter. One of them opens the real popup and finds it with `chrome.runtime.getContexts`. Headless Chromium reports window focus and full screen (`chrome.windows.update` with `state: "fullscreen"`), so the tests can check those conditions.
+- `unlockSite(background, domain, msLeft)` (exported from `fixtures.js`) puts a domain on the list, unlocked. It writes the unlock before the list, so the background's rule rebuild doesn't add a rule that would bounce the test page to the blocked page.
 
 **Active tab:** opened as a tab, the popup counts itself as the active tab, so the circle shows "Nothing to block here". Pass `activeTab: { url, title }` to make the popup see that page as the active tab instead; it overrides `chrome.tabs.query` inside the popup page. The fake tab has no id, so actions skip their navigate/reload step: what the circle shows and what lands in storage can be tested, but the tab actually reloading onto the blocked page (or back to the site) still needs a manual check in Chrome.
 
 Write tests against what a user sees: role- and label-based locators, visible text, and resulting storage.
 
 ## Permissions
+
+`scripting` lets the background inject the warning bar into an unlocked site's tabs, and only there, only in the last minute. The alternative, a content script declared for every page, needs no permission but loads on every page the user opens.
 
 `host_permissions: <all_urls>` is required because a `declarativeNetRequest` **redirect** rule needs host access. Switching to a plain `block` rule would remove that requirement but lose the custom blocked page. Keep this trade-off in mind before changing manifest permissions, since they are justified in the Chrome Web Store listing.
 

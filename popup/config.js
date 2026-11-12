@@ -9,6 +9,7 @@ export {
   MIN_UNLOCK_MINUTES,
   MAX_UNLOCK_MINUTES,
   DEFAULT_PAUSE_MINUTES,
+  WARNING_MS,
 } from "../shared/core.js";
 
 /** Circumference of the countdown ring (must match the SVG circle r=73). */

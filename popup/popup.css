@@ -277,6 +277,8 @@ svg { flex-shrink: 0; }
   transition: stroke-dashoffset 0.25s linear;
 }
 .circle.is-off .ring-progress { stroke: var(--break); }
+.circle.is-warning .ring-progress { stroke: var(--danger); }
+.circle.is-warning .circle-main { color: var(--danger-text); }
 
 .circle-text {
   position: absolute;
@@ -345,7 +347,7 @@ svg { flex-shrink: 0; }
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 0 12px 0 14px;
+  padding: 0 14px;
   border-radius: 12px;
   border: 1px solid var(--line);
   background: var(--surface);
@@ -359,8 +361,7 @@ svg { flex-shrink: 0; }
 .nav-row svg { width: 16px; height: 16px; color: var(--muted); }
 .nav-row-value { margin-left: auto; font-size: 13px; color: var(--muted); }
 
-.danger-row { gap: 10px; padding: 0 14px; color: var(--danger-text); }
-.danger-row svg { color: currentColor; }
+.danger-row { color: var(--danger-text); }
 .danger-row.is-armed { border-color: var(--danger); }
 
 /* --- Cards of rows (YouTube switches, Settings) --- */
@@ -397,12 +398,11 @@ label.row { cursor: pointer; }
   transition: background 0.15s;
 }
 .action-row:hover { background: var(--surface-hover); }
-.action-row svg { width: 16px; height: 16px; color: var(--muted); }
 
 /* --- Settings --- */
 .section-title {
   height: 14px;
-  margin: 0 2px 6px;
+  margin: 0 15px 6px;
   font-size: 11px;
   line-height: 14px;
   font-weight: 600;
@@ -471,14 +471,18 @@ label.row { cursor: pointer; }
 /* A list view fills the panel: its heading, Back and Add field stay put, and the
    list scrolls on its own inside its box. */
 .view-head {
+  position: relative;
   height: 32px;
   flex: none;
   display: flex;
   align-items: center;
-  gap: 4px;
+  justify-content: center;
 }
 .view-head h2 { font-size: 15px; font-weight: 600; }
 .back-btn {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 32px;
   height: 32px;
   margin-left: -8px; /* line the arrow up with the content's left edge */
@@ -498,7 +502,7 @@ label.row { cursor: pointer; }
   flex: 1;
   min-width: 0;
   height: 36px;
-  padding: 0 12px;
+  padding: 0 14px;
   border-radius: 10px;
   border: 1px solid var(--line);
   background: var(--surface);
@@ -541,7 +545,7 @@ label.row { cursor: pointer; }
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 0 6px 0 12px;
+  padding: 0 7px 0 14px;
   border-top: 1px solid var(--line-soft);
   font-size: 13.5px;
 }
