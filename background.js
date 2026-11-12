@@ -175,7 +175,7 @@ async function dropOrphanedSnoozes() {
 // the last minute (WARNING_MS). When the last minute starts, those tabs also get
 // the warning bar (content/unlock-warning.js). Other tabs show nothing, and
 // nothing shows while Focus Guard is off. In the last 30 seconds the popup
-// opens once (see "Opening the popup" below).
+// opens, or a notification shows (see "The last 30 seconds" below).
 
 const BADGE_ALARM = "badge-tick";
 
@@ -316,7 +316,7 @@ async function updateBadges() {
     if (tab.id != null) paintTab(tab, snoozed, now);
   }
 
-  if (Object.values(snoozed).some((e) => expiryOf(e) - now <= POPUP_MS)) checkPopup();
+  checkEnding();
 
   const expiries = Object.values(snoozed).map(expiryOf);
   if (expiries.length === 0) {
@@ -343,93 +343,232 @@ chrome.tabs.onRemoved.addListener((tabId) => {
   warnedTabs.delete(tabId);
 });
 
-// --- Opening the popup ---
-// When an unlock has POPUP_MS or less left, the popup opens by itself, once per
-// unlock: only over the site's own tab, in the Chrome window in front, not in
-// full screen, and not if the warning bar was hidden for this unlock. Closing
-// it is final for that unlock, "+1 min" included (versions before 1.3.0
-// reopened it every time it closed, which is what made it a nag). The checks
-// run on every badge tick (each second in the last minute), so arriving on the
-// site's tab, coming back to Chrome, or leaving full screen late still opens it.
+// --- The last 30 seconds: the popup, or a notification ---
+// When an unlock has ENDING_MS or less left, Focus Guard warns once more:
+// - On the site's own tab, in the Chrome window in front, the popup opens.
+// - If the site is showing but the popup can't open over it (Chrome is
+//   minimized, behind another app, or full screen), a desktop notification
+//   says when it blocks again, with "+1 min". Clicking it brings Chrome back
+//   on that tab, out of full screen, where the popup then opens.
+// Each happens at most once per unlock, "+1 min" included, and once the popup
+// has opened no notification follows. Neither happens while you're in Chrome
+// on another tab, while Focus Guard is off, or after the warning bar was
+// hidden for this unlock. A notification clears itself as soon as it no
+// longer applies: the unlock ends or gets more time, you're back in Chrome,
+// or Focus Guard is switched off. (Versions before 1.3.0 reopened the popup
+// every time it closed, which made it a nag. Don't bring that back.)
+//
+// The check runs on every badge tick (each second in the last minute), and
+// when you switch tabs or Chrome windows.
 
-const POPUP_MS = 30_000;
+const ENDING_MS = 30_000;
 
-let popupChain = Promise.resolve();
+/** Notification ids are this plus the domain. */
+const ENDING_NOTE = "ending:";
+
+/** Every window type, so focus in any Chrome window counts as Chrome in front. */
+const ALL_WINDOW_TYPES = ["normal", "popup", "panel", "app", "devtools"];
+
+let endingChain = Promise.resolve();
+
+/** Check the last 30 seconds, serialized so two checks can't both act. */
+function checkEnding() {
+  endingChain = endingChain
+    .then(doCheckEnding)
+    .catch((e) => console.error("[Focus Guard] last-30-seconds check failed:", e));
+  return endingChain;
+}
 
 /**
- * Open the popup if an unlock's last 30 seconds call for it. Serialized like
- * syncRules, so two triggers in a row can't both open it.
+ * Where you are in Chrome right now.
+ * @returns {Promise<{ windows: chrome.windows.Window[], front: chrome.windows.Window | null, inFront: boolean, popupOpen: boolean }>}
+ *   `front` is the window you're looking at, null while Chrome isn't in front.
  */
-function checkPopup() {
-  popupChain = popupChain
-    .then(doCheckPopup)
-    .catch((e) => console.error("[Focus Guard] opening the popup failed:", e));
-  return popupChain;
-}
-
-/** One check: see "Opening the popup" above for the conditions. */
-async function doCheckPopup() {
-  const snoozed = await badgeSnoozes();
-  if (Object.keys(snoozed).length === 0) return;
-
-  let win;
-  try {
-    win = await chrome.windows.getLastFocused({ populate: true, windowTypes: ["normal"] });
-  } catch {
-    return; // no browser window
-  }
-  const tab = win.tabs?.find((t) => t.active);
-  const domain = unlockedDomainFor(tab?.url, snoozed);
-  if (!domain) return;
-  const remaining = expiryOf(snoozed[domain]) - Date.now();
-  if (remaining > POPUP_MS || remaining <= 0) return;
-
-  const key = unlockKey(snoozed[domain]);
-  const { popupOpened = {}, dismissedWarnings = {} } = await chrome.storage.session.get([
-    "popupOpened",
-    "dismissedWarnings",
+async function chromeView() {
+  const [windows, popups] = await Promise.all([
+    chrome.windows.getAll({ populate: true, windowTypes: ALL_WINDOW_TYPES }),
+    chrome.runtime.getContexts({ contextTypes: ["POPUP"] }),
   ]);
-  if (popupOpened[domain] === key) return;
-  // ✕ on the warning bar, in any of the site's tabs, means "leave me alone".
-  if (Object.values(dismissedWarnings).includes(key)) return;
-
-  // Already open (the user opened it): that counts as its one time. Checked
-  // before focus, because Chrome reports the window unfocused while it's open.
-  const open = await chrome.runtime.getContexts({ contextTypes: ["POPUP"] });
-  if (open.length === 0) {
-    // Another app in front, or full screen: wait.
-    if (!win.focused || win.state === "fullscreen") return;
-    try {
-      await chrome.action.openPopup({ windowId: win.id });
-    } catch {
-      return; // Chrome refused (e.g. the window just lost focus): try next tick
-    }
+  const popupOpen = popups.length > 0;
+  let front = windows.find((w) => w.focused) ?? null;
+  // While the popup is open, Chrome reports every window unfocused (and the
+  // popup's context has no window id): it's over the last focused window.
+  if (!front && popupOpen) {
+    const last = await chrome.windows.getLastFocused().catch(() => null);
+    front = windows.find((w) => w.id === last?.id) ?? null;
   }
-  // Kept in session storage, so the worker sleeping can't make it open twice.
-  // Entries for unlocks that have ended are dropped on the way.
-  const kept = Object.entries(popupOpened).filter(([d]) => snoozed[d]);
-  await chrome.storage.session.set({
-    popupOpened: { ...Object.fromEntries(kept), [domain]: key },
-  });
+  return { windows, front, inFront: popupOpen || front != null, popupOpen };
 }
 
-chrome.tabs.onActivated.addListener(() => checkPopup());
+/**
+ * The unlocked site a window is showing (its active tab), if any.
+ * @param {chrome.windows.Window | null} win
+ * @param {Record<string, unknown>} snoozed
+ */
+function siteShownIn(win, snoozed) {
+  if (win?.type !== "normal") return null;
+  return unlockedDomainFor(win.tabs?.find((t) => t.active)?.url, snoozed);
+}
+
+/**
+ * The "blocks again in 30 seconds" notification.
+ * @param {string} domain
+ * @param {number} left ms until the site blocks again
+ * @param {boolean} fullScreen the site is in front, in full screen
+ * @returns {chrome.notifications.NotificationOptions}
+ */
+function endingNotification(domain, left, fullScreen) {
+  const seconds = Math.max(1, Math.ceil(left / 1000));
+  return {
+    type: "basic",
+    iconUrl: "icons/icon128.png",
+    title: `${domain} blocks again in ${seconds} ${seconds === 1 ? "second" : "seconds"}`,
+    message: fullScreen ? "Click to leave full screen." : "Click to go back to it.",
+    buttons: [{ title: "+1 min" }],
+    // Urgent only in full screen: GNOME, for one, shows nothing else over a
+    // full-screen window. Elsewhere a normal one, so Do Not Disturb holds.
+    priority: fullScreen ? 2 : 0,
+  };
+}
+
+/** One check: see "The last 30 seconds" above for the rules. */
+async function doCheckEnding() {
+  const snoozed = await badgeSnoozes();
+  const [session, notifications] = await Promise.all([
+    chrome.storage.session.get(["popupOpened", "notificationShown", "dismissedWarnings"]),
+    chrome.notifications.getAll(),
+  ]);
+  const { popupOpened = {}, notificationShown = {}, dismissedWarnings = {} } = session;
+  const hidden = Object.values(dismissedWarnings);
+  const now = Date.now();
+  const ending = Object.keys(snoozed).filter((d) => {
+    const left = expiryOf(snoozed[d]) - now;
+    return left > 0 && left <= ENDING_MS && !hidden.includes(unlockKey(snoozed[d]));
+  });
+  const shown = Object.keys(notifications)
+    .filter((id) => id.startsWith(ENDING_NOTE))
+    .map((id) => id.slice(ENDING_NOTE.length));
+  if (ending.length === 0 && shown.length === 0) return;
+
+  const { windows, front, inFront, popupOpen } = await chromeView();
+  const wanted = new Set(); // sites whose notification still applies
+  let recorded = false;
+
+  for (const domain of ending) {
+    const key = unlockKey(snoozed[domain]);
+    const onSite = siteShownIn(front, snoozed) === domain;
+
+    if (onSite && (popupOpen || front.state !== "fullscreen")) {
+      // On the site, the popup's turn. Already open counts as its one time.
+      if (popupOpened[domain] === key) continue;
+      if (!popupOpen) {
+        try {
+          await chrome.action.openPopup({ windowId: front.id });
+        } catch {
+          continue; // Chrome refused (e.g. focus just moved): try next tick
+        }
+      }
+      popupOpened[domain] = key;
+      recorded = true;
+      continue;
+    }
+
+    // The popup can't open over the site: it's in full screen, or Chrome
+    // isn't in front while the site is showing in one of its windows.
+    const showing = onSite || (!inFront && windows.some((w) => siteShownIn(w, snoozed) === domain));
+    if (!showing) continue;
+    wanted.add(domain);
+    if (popupOpened[domain] === key || notificationShown[domain] === key) continue;
+    const left = expiryOf(snoozed[domain]) - Date.now();
+    try {
+      await chrome.notifications.create(ENDING_NOTE + domain, endingNotification(domain, left, onSite));
+    } catch (e) {
+      console.error("[Focus Guard] couldn't show the notification:", e);
+    }
+    notificationShown[domain] = key; // even on failure: no retry every second
+    recorded = true;
+  }
+
+  await Promise.all(
+    shown.filter((d) => !wanted.has(d)).map((d) => chrome.notifications.clear(ENDING_NOTE + d)),
+  );
+
+  if (recorded) {
+    // Session storage, so the worker sleeping can't make either happen twice.
+    // Records of unlocks that have ended are dropped on the way. (Not checked
+    // against `snoozed`, which is empty while Focus Guard is off.)
+    const live = await getSnoozed();
+    const keep = (map) => Object.fromEntries(Object.entries(map).filter(([d]) => live[d]));
+    await chrome.storage.session.set({
+      popupOpened: keep(popupOpened),
+      notificationShown: keep(notificationShown),
+    });
+  }
+}
+
+/**
+ * Clicking the notification: bring Chrome back on the site's tab, restoring a
+ * minimized window and leaving full screen. The focus change then opens the
+ * popup.
+ * @param {string} domain
+ */
+async function goToSite(domain) {
+  const snoozed = await badgeSnoozes();
+  const windows = await chrome.windows.getAll({ populate: true, windowTypes: ["normal"] });
+  const tabs = windows
+    .flatMap((w) => w.tabs ?? [])
+    .filter((t) => unlockedDomainFor(t.url, snoozed) === domain);
+  const tab = tabs.find((t) => t.active) ?? tabs[0];
+  if (tab?.id == null) return;
+  await chrome.tabs.update(tab.id, { active: true });
+  const win = windows.find((w) => w.id === tab.windowId);
+  // Focusing brings back a minimized window as it was (maximized or not),
+  // which "normal" wouldn't; full screen has to be left with "normal".
+  await chrome.windows.update(
+    tab.windowId,
+    win?.state === "fullscreen" ? { state: "normal", focused: true } : { focused: true },
+  );
+}
+
+chrome.notifications.onClicked.addListener(async (id) => {
+  if (!id.startsWith(ENDING_NOTE)) return;
+  await chrome.notifications.clear(id);
+  await goToSite(id.slice(ENDING_NOTE.length));
+});
+
+chrome.notifications.onButtonClicked.addListener(async (id) => {
+  if (!id.startsWith(ENDING_NOTE)) return;
+  const domain = id.slice(ENDING_NOTE.length);
+  await chrome.notifications.clear(id);
+  if ((await badgeSnoozes())[domain]) await extendUnlock(domain); // "+1 min"
+});
+
+chrome.tabs.onActivated.addListener(() => checkEnding());
 chrome.windows.onFocusChanged.addListener((windowId) => {
-  if (windowId !== chrome.windows.WINDOW_ID_NONE) checkPopup();
+  // Leaving Chrome is picked up by the next tick, within a second: on some
+  // Linux window managers WINDOW_ID_NONE also comes between two Chrome windows.
+  if (windowId !== chrome.windows.WINDOW_ID_NONE) checkEnding();
 });
 
 // --- Messages from the warning bar ---
 
 /**
- * "+1 min" on the bar: extend the unlock of the site the tab is on, with the
+ * "+1 min", on the bar or the notification: extend a site's unlock with the
  * popup's rule (never past the unlock's original length).
+ * @param {string} domain
+ */
+async function extendUnlock(domain) {
+  const expiry = await extendSnooze(domain, 60_000);
+  if (expiry != null) await chrome.alarms.create("snooze:" + domain, { when: expiry });
+}
+
+/**
+ * "+1 min" on the bar: extend the unlock of the site the tab is on.
  * @param {chrome.tabs.Tab} tab
  */
 async function extendUnlockFromTab(tab) {
   const domain = unlockedDomainFor(tab.url, await badgeSnoozes());
-  if (!domain) return;
-  const expiry = await extendSnooze(domain, 60_000);
-  if (expiry != null) await chrome.alarms.create("snooze:" + domain, { when: expiry });
+  if (domain) await extendUnlock(domain);
 }
 
 /**

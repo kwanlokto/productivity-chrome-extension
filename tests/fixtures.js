@@ -19,6 +19,10 @@ export const test = base.extend({
         `--disable-extensions-except=${EXTENSION_PATH}`,
         `--load-extension=${EXTENSION_PATH}`,
       ],
+      // No session bus: Chromium then keeps notifications to itself, instead of
+      // showing them on the desktop of whoever runs the tests (where the
+      // desktop can also close them mid-test).
+      env: { ...process.env, DBUS_SESSION_BUS_ADDRESS: "disabled:" },
     });
     await use(context);
     await context.close();

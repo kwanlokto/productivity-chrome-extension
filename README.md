@@ -11,7 +11,9 @@ distracting sites and taming YouTube's doom-scroll machinery.
   While a site is unlocked, its tabs show the time left on the toolbar icon. In the
   last minute the badge turns red and a small bar on the page says when the site
   blocks again, with **+1 min** and a way to hide it. With 30 seconds left the
-  popup opens over the site, once per unlock.
+  popup opens over the site, once per unlock. If Chrome is minimized, behind
+  another app, or full screen then, a desktop notification says it instead,
+  with **+1 min**; clicking it takes you back to the site.
 - **Custom block list** — Add or remove any domain from the popup, or block the site
   you're currently on. Your list syncs across your Chrome profile via
   `chrome.storage.sync`.
@@ -39,7 +41,7 @@ distracting sites and taming YouTube's doom-scroll machinery.
 
 | Piece | Role |
 |-------|------|
-| [background.js](background.js) | Syncs `declarativeNetRequest` dynamic rules from your blocked-domain list and redirects matching `main_frame` loads to the blocked page; restores blocks when a snooze alarm fires; shows an unlocked site's time left as a badge on the toolbar icon. |
+| [background.js](background.js) | Syncs `declarativeNetRequest` dynamic rules from your blocked-domain list and redirects matching `main_frame` loads to the blocked page; restores blocks when a snooze alarm fires; shows an unlocked site's time left as a badge on the toolbar icon, and warns in its last 30 seconds (the popup, or a desktop notification). |
 | [blocked.html](blocked.html) / [blocked.js](blocked.js) | The "stay focused" page shown when a blocked site is opened. |
 | [popup/](popup/) | The toolbar UI (ES modules — see below). |
 | [content/youtube.js](content/youtube.js) / [content/youtube.css](content/youtube.css) | Toggle `<html>` classes that hide distracting YouTube elements; re-applies across SPA navigation. |
@@ -156,6 +158,11 @@ This extension requests broad access, so the dashboard will require you to justi
 - **`scripting`** — showing the "blocks again soon" bar on a site the user unlocked,
   in the last minute of the unlock. Justify it as: *"Warn the user on the page
   they unlocked, shortly before it is blocked again."*
+- **`notifications`** — the "blocks again in 30 seconds" notification when Chrome
+  isn't in front. Justify it as: *"Tell the user an unlocked site is about to be
+  blocked again when Chrome isn't in front."* It adds "Display notifications" to
+  the install dialog, and an update that adds it turns the extension off for
+  existing users until they approve it.
 - **Privacy policy URL** — required because of the broad host access. A short page
   stating that Focus Guard stores your block list and settings only in Chrome
   storage and **does not collect, transmit, or sell any data** is enough (host it
@@ -183,9 +190,11 @@ This extension requests broad access, so the dashboard will require you to justi
   stay in view. Don't change the size without updating this rule (and the test
   that enforces it, [tests/popup-size.spec.js](tests/popup-size.spec.js)).
 - The popup opens by itself only once per unlock: with 30 seconds left, over the
-  unlocked site's tab, when Chrome is in front and not full screen. It doesn't
-  open again after you close it, even after **+1 min**, and hiding the warning bar
-  stops it from opening for that unlock.
+  unlocked site's tab, when Chrome is in front and not full screen. When it can't
+  (Chrome minimized, behind another app, or full screen), a desktop notification
+  shows instead, also once per unlock, and it clears itself when it no longer
+  applies. Neither comes back after you close it, even after **+1 min**, and
+  hiding the warning bar stops both for that unlock.
 - **Everything lines up on two edges:** labels start 31px from the left, and
   switches, arrows and ✕ buttons end 309px from it
   ([tests/alignment.spec.js](tests/alignment.spec.js) checks this).
